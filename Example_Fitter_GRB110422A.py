@@ -3,6 +3,8 @@ import numpy as np
 import emcee as em
 import matplotlib.pyplot as plt
 import pandas as pd
+import sys
+import math
 
 from JetFit import FitterClass
 
@@ -11,7 +13,7 @@ Table = "./Table.h5"
 
 Info = {
     # Fitting parameters (Parameter names see P dictionary below)
-    'Fit': np.array(['Eta0', 'GammaB', 'theta_obs']),
+    'Fit': np.array(['Eta0', 'E', 'n', 'epse', 'epsb', 'GammaB', 'theta_obs', 'p']),
     # Set parameters in log scale
     'Log': np.array(['E', 'n', 'epse', 'epsb']),
     'LogType': 'Log10',                              # Log scale type: Log10 or Log
@@ -24,13 +26,13 @@ Info = {
 # Bounds for parameters. All in linear scale.
 FitBound = {
     'E': np.array([1e-6, 1e3]),
-    'n': np.array([1e-6, 1e3]),
-    'Eta0': np.array([2., 10.]),
+    'n': np.array([1e-5, 1e3]),
+    'Eta0': np.array([1., 10.]),
     'GammaB': np.array([1., 12.]),
-    'theta_obs': np.array([0., 1.]),
+    'theta_obs': np.array([0.045, 1.]),
     'epse': np.array([1e-6, 1.]),
-    'epsb': np.array([1e-6, 1.]),
-    'p': np.array([2., 4.])
+    'epsb': np.array([1e-6, 100.]),
+    'p': np.array([2., 5.])
 }
 
 
@@ -43,32 +45,31 @@ FitBound = {
 Explore = True
 
 P = {
-    'E': 0.15869069395227384,
-    'Eta0': 7.973477192135503,
-    'GammaB': 11.000923300022666,
-    'dL': 0.012188,
-    'epsb': 0.013323706571267526,
-    'epse': 0.04072783842837688,
-    'n': 0.0009871221028954489,
-    'p': 2.1333493591554804,
-    'theta_obs': 0.4769798916899842,
+    'E': 2.90,
+    'Eta0': 5,
+    'GammaB': 10,
+    'dL': 4.1993595,
+    'epsb': 1e-6,
+    'epse': 0.01,
+    'n': 2.65,
+    'p': 2.27611,
+    'theta_obs': 0.0728148*0.693795,
     'xiN': 1.0,
-    'z': 0.00973
+    'z': 1.770
 }
-
 
 # parameters for fitter.
 # Path to observation data.
-GRB = './GW170817.csv'
+GRB = './GRB110422A_new_total.csv'
 
 # for demostaration
 SamplerType = "ParallelTempered"
-NTemps = 2
-NWalkers = 10
-Threads = 8
+NTemps = 8
+NWalkers = 64
+Threads = 16
 
-BurnLength = 20
-RunLength = 20
+BurnLength = 10
+RunLength = 10
 
 # For GW170817 and bellow parameters, it takes ~24 hours to finish.
 # For quick run, values of the parameters can be modified accordingly.
@@ -86,9 +87,8 @@ RunLength = 20
 Fitter = FitterClass(Table, Info, FitBound, P, Explore=Explore)
 # LoadData
 DF = pd.read_csv(GRB)
-Times, TimeBnds, Fluxes, FluxErrs, Freqs = DF['Times'].values, DF[
-    'TimeBnds'].values, DF['Fluxes'].values, DF['FluxErrs'].values, DF['Freqs'].values
-Fitter.LoadData(Times, TimeBnds, Fluxes, FluxErrs, Freqs)
+Times, Fluxes, FluxErrs, Freqs = DF['Times'].values, DF['Fluxes'].values, DF['FluxErrs'].values, DF['Freqs'].values
+Fitter.LoadData(Times, Fluxes, FluxErrs, Freqs)
 # Initialize sampler
 Fitter.GetSampler(SamplerType, NTemps, NWalkers, Threads)
 
@@ -98,9 +98,10 @@ BurnInResult = Fitter.BurnIn(BurnLength=BurnLength)
 # Fitting and store chain results to Result
 Result = Fitter.RunSampler(RunLength=RunLength, Output=None)
 
-
 # Analysis: Below only depends on Result
 # Plot Light Curves
+
+
 def Log2Linear(Log, Info):
     Linear = []
     for i, key in enumerate(Info['Fit']):
@@ -114,7 +115,7 @@ def Log2Linear(Log, Info):
     return np.array(Linear)
 
 
-def PltDF(ax, DF, ColorList=['orange', 'red', 'g', 'b'], ScaleFactor=[1., 1., 1., 1.], Legend=True, XAxisDay=False):
+def PltDF(ax, DF, ColorList=['orange', 'red', 'g', 'b', 'black', 'pink'], ScaleFactor=[1., 1., 1., 1., 1., 1.], Legend=True, XAxisDay=False):
     Freqs = DF['Freqs'].unique()
 
     for Freq, Color, Scale in zip(Freqs, ColorList, ScaleFactor):
@@ -160,13 +161,15 @@ for i, key in enumerate(Info['Fit']):
 
 # Plot best fitting light curves
 fig, ax = plt.subplots(figsize=(8, 8))
-ColorList = ['orange', 'red', 'g', 'b']
-ScaleFactor = [6., 1., 100., 800.]
+# ColorList = ['orange', 'red', 'g', 'b']
+# ScaleFactor = [6., 1., 100., 800.]
+ColorList = ['orange', 'red']
+ScaleFactor = [1., 1.]
 
 PltDF(ax, DF, ColorList=ColorList,
-      ScaleFactor=ScaleFactor, Legend=True, XAxisDay=True)
+      ScaleFactor=ScaleFactor, Legend=True, XAxisDay=False)
 
-NPoints = 200
+NPoints = 100
 Left = 1.
 Right = 2.
 for i, Freq in enumerate(DF['Freqs'].unique()):
@@ -180,10 +183,10 @@ for i, Freq in enumerate(DF['Freqs'].unique()):
         Fitter.FluxGenerator.GetSpectral(NewTimes, NewFreqs, BestP))
     print(FluxesModel)
 
-    plt.loglog(NewTimes/24./3600., FluxesModel *
+    plt.loglog(NewTimes, FluxesModel *
                ScaleFactor[i], '--', color=ColorList[i], linewidth=1.5)
 
-plt.savefig('light_curves_170817.png')
+plt.savefig('light_curve_GRB110422A_tot.png')
 
 # Plot Distribution
 # Get nice latex label
@@ -210,4 +213,4 @@ fig = corner.corner(Chain, labels=Label, label_size=20, bins=40, plot_datapoints
                     label_kwargs={'fontsize': 18},
                     title_kwargs={"fontsize": 18})
 
-fig.savefig("contour_GW170817.png")
+fig.savefig("contour_GRB110422A_tot.png")
