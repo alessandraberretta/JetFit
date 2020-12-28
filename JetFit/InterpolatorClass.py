@@ -85,7 +85,6 @@ class InterpolatorClass:
         from scipy.interpolate import RegularGridInterpolator
 
         Axes = [self._Axis[key] for key in self._Axis['Axis']]
-        print(Axes)
         self._f_peak = RegularGridInterpolator(Axes, self._Table['f_peak'])
         self._f_nu_c = RegularGridInterpolator(Axes, self._Table['f_nu_c'])
         self._f_nu_m = RegularGridInterpolator(Axes, self._Table['f_nu_m'])

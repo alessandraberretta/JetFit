@@ -12,7 +12,7 @@ Table = "./Table.h5"
 
 Info = {
     # Fitting parameters (Parameter names see P dictionary below)
-    'Fit': np.array(['Eta0', 'GammaB', 'theta_obs']),
+    'Fit': np.array(['Eta0', 'GammaB', 'theta_obs', 'E', 'epsb', 'epse', 'n', 'p']),
     # Set parameters in log scale
     'Log': np.array(['E', 'n', 'epse', 'epsb']),
     'LogType': 'Log10',                              # Log scale type: Log10 or Log
@@ -41,14 +41,14 @@ FitBound = {
 #  1. If Explore == True: Fitting parameters are randomly distributed in whole parameter space.
 #  2. If Explore != True: Fitting parameters are randomly distributed around maximum posterior region, indicated by values in P.
 
-Explore = True
+Explore = False
 
 P = {
     'E': 1.25869069395227384,
     'Eta0': 7.973477192135503,
     'GammaB': 11.500923300022666,
     'dL': 4.7287024,
-    'epsb': 1,
+    'epsb': 2,
     'epse': 10,
     'n': 50,
     'p': 2.1,
@@ -63,8 +63,8 @@ GRB = './GRB050315_new.csv'
 
 # for demostaration
 SamplerType = "ParallelTempered"
-NTemps = 2
-NWalkers = 6
+NTemps = 64
+NWalkers = 300
 Threads = 8
 
 BurnLength = 10
@@ -168,7 +168,7 @@ ScaleFactor = [1.]
 PltDF(ax, DF, ColorList=ColorList,
       ScaleFactor=ScaleFactor, Legend=True, XAxisDay=False)
 
-NPoints = 100
+NPoints = 200
 Left = 1.
 Right = 2.
 for i, Freq in enumerate(DF['Freqs'].unique()):
@@ -205,7 +205,7 @@ for x in Info['Fit']:
     Label.append(Latex[x])
 
 
-# plot contour with ChainConsumer
+# plot contour with ChainConsume
 Chain = Result['Chain'].reshape((-1, FitDim))
 fig = corner.corner(Chain, labels=Label, label_size=20, bins=40, plot_datapoints=False,
                     quantiles=[0.16, 0.5, 0.84], show_titles=True, color='darkblue',

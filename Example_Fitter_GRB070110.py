@@ -12,7 +12,7 @@ Table = "./Table.h5"
 
 Info = {
     # Fitting parameters (Parameter names see P dictionary below)
-    'Fit': np.array(['Eta0', 'GammaB', 'theta_obs']),
+    'Fit': np.array(['Eta0', 'GammaB', 'theta_obs', 'E', 'n', 'epse', 'epsb', 'p']),
     # Set parameters in log scale
     'Log': np.array(['E', 'n', 'epse', 'epsb']),
     'LogType': 'Log10',                              # Log scale type: Log10 or Log
@@ -30,7 +30,7 @@ FitBound = {
     'GammaB': np.array([1., 12.]),
     'theta_obs': np.array([0.045, 1.]),
     'epse': np.array([1e-6, 50.]),
-    'epsb': np.array([1e-6, 50.]),
+    'epsb': np.array([1e-10, 50.]),
     'p': np.array([2., 5.])
 }
 
@@ -41,30 +41,30 @@ FitBound = {
 #  1. If Explore == True: Fitting parameters are randomly distributed in whole parameter space.
 #  2. If Explore != True: Fitting parameters are randomly distributed around maximum posterior region, indicated by values in P.
 
-Explore = True
+Explore = False
 
 P = {
-    'E': 2.14774029533,
+    'E': 8.07593,
     'Eta0': 9.973477192135503,
     'GammaB': 11.500923300022666,
     'dL': 5.9536181,
-    'epsb': 0.0100022076,
-    'epse': 0.03934572907,
-    'n': 1000,
-    'p': 2.1,
-    'theta_obs': 0.0514942046496,
+    'epsb': 1.25892541e-4,
+    'epse': 0.10759943726,
+    'n': 10.,
+    'p': 2.16385,
+    'theta_obs': 0.1514942046496,
     'xiN': 1.0,
     'z': 2.352
 }
 
 # parameters for fitter.
 # Path to observation data.
-GRB = './GRB070110_new_total.csv'
+GRB = './GRB070110_new.csv'
 
 # for demostaration
 SamplerType = "ParallelTempered"
-NTemps = 2
-NWalkers = 6
+NTemps = 64
+NWalkers = 200
 Threads = 8
 
 BurnLength = 10
@@ -180,12 +180,12 @@ for i, Freq in enumerate(DF['Freqs'].unique()):
     # Generate Fluxes
     FluxesModel = np.asarray(
         Fitter.FluxGenerator.GetSpectral(NewTimes, NewFreqs, BestP))
-    print(FluxesModel)
+    # print(FluxesModel)
 
     plt.loglog(NewTimes, FluxesModel *
                ScaleFactor[i], '--', color=ColorList[i], linewidth=1.5)
 
-plt.savefig('light_curve_GRB070110_tot.png')
+plt.savefig('light_curve_GRB070110_fit.png')
 
 # Plot Distribution
 # Get nice latex label
@@ -212,4 +212,4 @@ fig = corner.corner(Chain, labels=Label, label_size=20, bins=40, plot_datapoints
                     label_kwargs={'fontsize': 18},
                     title_kwargs={"fontsize": 18})
 
-fig.savefig("contour_GRB070110_tot.png")
+fig.savefig("contour_GRB070110_fit.png")

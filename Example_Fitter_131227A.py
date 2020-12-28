@@ -12,7 +12,7 @@ Table = "./Table.h5"
 
 Info = {
     # Fitting parameters (Parameter names see P dictionary below)
-    'Fit': np.array(['Eta0', 'GammaB', 'theta_obs', 'E', 'n', 'epse', 'epsb']),
+    'Fit': np.array(['Eta0', 'GammaB', 'theta_obs', 'E', 'n', 'epse', 'epsb', 'p']),
     # Set parameters in log scale
     'Log': np.array(['E', 'n', 'epse', 'epsb']),
     'LogType': 'Log10',                              # Log scale type: Log10 or Log
@@ -25,13 +25,13 @@ Info = {
 # Bounds for parameters. All in linear scale.
 FitBound = {
     'E': np.array([1e-6, 1e3]),
-    'n': np.array([1e-5, 1e8]),
+    'n': np.array([1e-6, 1e3]),
     'Eta0': np.array([2., 10.]),
     'GammaB': np.array([1., 12.]),
-    'theta_obs': np.array([0.001, 1.]),
-    'epse': np.array([1e-6, 100.]),
-    'epsb': np.array([1e-6, 100.]),
-    'p': np.array([2., 5.])
+    'theta_obs': np.array([0., 1]),
+    'epse': np.array([1e-6, 1.]),
+    'epsb': np.array([1e-10, 1.]),
+    'p': np.array([2., 4.])
 }
 
 
@@ -41,30 +41,30 @@ FitBound = {
 #  1. If Explore == True: Fitting parameters are randomly distributed in whole parameter space.
 #  2. If Explore != True: Fitting parameters are randomly distributed around maximum posterior region, indicated by values in P.
 
-Explore = False
+Explore = True
 
 P = {
-    'E': 2.62816,
+    'E': 1.9869069395227384,
     'Eta0': 9.973477192135503,
-    'GammaB': 11.500923300022666,
-    'dL': 7.0738005,
-    'epsb': 0.0000752073,
-    'epse': 0.00086160855,
-    'n': 51997.2050384,
-    'p': 2.28537,
-    'theta_obs': 0.00432749711,
+    'GammaB': 11.000923300022666,
+    'dL': 0.396680808,
+    'epsb': 0.00065,
+    'epse': 0.0065,
+    'n': 1000,
+    'p': 2.22,
+    'theta_obs': 0.088,
     'xiN': 1.0,
-    'z': 2.71
+    'z': 5.3
 }
 
 # parameters for fitter.
 # Path to observation data.
-GRB = './GRB090726_new_total.csv'
+GRB = './GRB131227A_new.csv'
 
 # for demostaration
 SamplerType = "ParallelTempered"
-NTemps = 64
-NWalkers = 256
+NTemps = 84
+NWalkers = 284
 Threads = 8
 
 BurnLength = 10
@@ -114,7 +114,7 @@ def Log2Linear(Log, Info):
     return np.array(Linear)
 
 
-def PltDF(ax, DF, ColorList=['orange', 'red', 'g', 'b', 'black', 'pink'], ScaleFactor=[1., 1., 1., 1., 1., 1.], Legend=True, XAxisDay=False):
+def PltDF(ax, DF, ColorList=['orange', 'red', 'g', 'b'], ScaleFactor=[1., 1., 1., 1.], Legend=True, XAxisDay=False):
     Freqs = DF['Freqs'].unique()
 
     for Freq, Color, Scale in zip(Freqs, ColorList, ScaleFactor):
@@ -162,8 +162,9 @@ for i, key in enumerate(Info['Fit']):
 fig, ax = plt.subplots(figsize=(8, 8))
 # ColorList = ['orange', 'red', 'g', 'b']
 # ScaleFactor = [6., 1., 100., 800.]
-ColorList = ['b']
+ColorList = ['purple']
 ScaleFactor = [1.]
+
 
 PltDF(ax, DF, ColorList=ColorList,
       ScaleFactor=ScaleFactor, Legend=True, XAxisDay=False)
@@ -185,7 +186,7 @@ for i, Freq in enumerate(DF['Freqs'].unique()):
     plt.loglog(NewTimes, FluxesModel *
                ScaleFactor[i], '--', color=ColorList[i], linewidth=1.5)
 
-plt.savefig('light_curve_GRB090726_fit.png')
+plt.savefig('light_curve_GRB131227A_fit.png')
 
 # Plot Distribution
 # Get nice latex label
@@ -212,4 +213,4 @@ fig = corner.corner(Chain, labels=Label, label_size=20, bins=40, plot_datapoints
                     label_kwargs={'fontsize': 18},
                     title_kwargs={"fontsize": 18})
 
-fig.savefig("contour_GRB090726_fit.png")
+fig.savefig("contour_GRB131227A_fit.png")

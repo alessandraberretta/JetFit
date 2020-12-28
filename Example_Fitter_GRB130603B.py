@@ -12,7 +12,7 @@ Table = "./Table.h5"
 
 Info = {
     # Fitting parameters (Parameter names see P dictionary below)
-    'Fit': np.array(['Eta0', 'GammaB', 'theta_obs']),
+    'Fit': np.array(['Eta0', 'GammaB', 'theta_obs', 'E', 'n', 'epse', 'epsb', 'p']),
     # Set parameters in log scale
     'Log': np.array(['E', 'n', 'epse', 'epsb']),
     'LogType': 'Log10',                              # Log scale type: Log10 or Log
@@ -30,7 +30,7 @@ FitBound = {
     'GammaB': np.array([1., 12.]),
     'theta_obs': np.array([0., 1]),
     'epse': np.array([1e-6, 1.]),
-    'epsb': np.array([1e-6, 1.]),
+    'epsb': np.array([1e-10, 1.]),
     'p': np.array([2., 4.])
 }
 
@@ -41,17 +41,17 @@ FitBound = {
 #  1. If Explore == True: Fitting parameters are randomly distributed in whole parameter space.
 #  2. If Explore != True: Fitting parameters are randomly distributed around maximum posterior region, indicated by values in P.
 
-Explore = True
+Explore = False
 
 P = {
-    'E': 0.05869069395227384,
-    'Eta0': 2.973477192135503,
+    'E': 8.9869069395227384,
+    'Eta0': 9.973477192135503,
     'GammaB': 11.000923300022666,
     'dL': 0.60749081,
-    'epsb': 0.65,
-    'epse': 0.65,
+    'epsb': 0.00065,
+    'epse': 0.0065,
     'n': 1000,
-    'p': 2.2,
+    'p': 2.22,
     'theta_obs': 0.088,
     'xiN': 1.0,
     'z': 0.365
@@ -63,8 +63,8 @@ GRB = './GRB130603B_new.csv'
 
 # for demostaration
 SamplerType = "ParallelTempered"
-NTemps = 2
-NWalkers = 6
+NTemps = 74
+NWalkers = 360
 Threads = 8
 
 BurnLength = 10
@@ -169,7 +169,7 @@ ScaleFactor = [1.]
 PltDF(ax, DF, ColorList=ColorList,
       ScaleFactor=ScaleFactor, Legend=True, XAxisDay=False)
 
-NPoints = 100
+NPoints = 200
 Left = 1.
 Right = 2.
 for i, Freq in enumerate(DF['Freqs'].unique()):
@@ -181,12 +181,12 @@ for i, Freq in enumerate(DF['Freqs'].unique()):
     # Generate Fluxes
     FluxesModel = np.asarray(
         Fitter.FluxGenerator.GetSpectral(NewTimes, NewFreqs, BestP))
-    print(FluxesModel)
+    # print(FluxesModel)
 
     plt.loglog(NewTimes, FluxesModel *
                ScaleFactor[i], '--', color=ColorList[i], linewidth=1.5)
 
-plt.savefig('light_curve_GRB130603B.png')
+plt.savefig('light_curve_GRB130603B_fit.png')
 
 # Plot Distribution
 # Get nice latex label
@@ -213,4 +213,4 @@ fig = corner.corner(Chain, labels=Label, label_size=20, bins=40, plot_datapoints
                     label_kwargs={'fontsize': 18},
                     title_kwargs={"fontsize": 18})
 
-fig.savefig("contour_GRB130603B.png")
+fig.savefig("contour_GRB130603B_fit.png")

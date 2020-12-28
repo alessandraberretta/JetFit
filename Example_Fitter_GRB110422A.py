@@ -30,8 +30,8 @@ FitBound = {
     'Eta0': np.array([1., 10.]),
     'GammaB': np.array([1., 12.]),
     'theta_obs': np.array([0.045, 1.]),
-    'epse': np.array([1e-6, 1.]),
-    'epsb': np.array([1e-6, 100.]),
+    'epse': np.array([1e-6, 10.]),
+    'epsb': np.array([1e-11, 1.]),
     'p': np.array([2., 5.])
 }
 
@@ -45,28 +45,28 @@ FitBound = {
 Explore = True
 
 P = {
-    'E': 2.90,
-    'Eta0': 5,
-    'GammaB': 10,
+    'E': 2.908237,
+    'Eta0': 9.973477192135503,
+    'GammaB': 11.500923300022666,
     'dL': 4.1993595,
-    'epsb': 1e-6,
-    'epse': 0.01,
-    'n': 2.65,
+    'epsb': 8.35179835e-8,
+    'epse': 0.00488809907,
+    'n': 2.65595,
     'p': 2.27611,
-    'theta_obs': 0.0728148*0.693795,
+    'theta_obs': 0.05051854416,
     'xiN': 1.0,
     'z': 1.770
 }
 
 # parameters for fitter.
 # Path to observation data.
-GRB = './GRB110422A_new_total.csv'
+GRB = './GRB110422A_new.csv'
 
 # for demostaration
 SamplerType = "ParallelTempered"
-NTemps = 8
-NWalkers = 64
-Threads = 16
+NTemps = 114
+NWalkers = 314
+Threads = 8
 
 BurnLength = 10
 RunLength = 10
@@ -163,13 +163,13 @@ for i, key in enumerate(Info['Fit']):
 fig, ax = plt.subplots(figsize=(8, 8))
 # ColorList = ['orange', 'red', 'g', 'b']
 # ScaleFactor = [6., 1., 100., 800.]
-ColorList = ['orange', 'red']
-ScaleFactor = [1., 1.]
+ColorList = ['orange']
+ScaleFactor = [1.]
 
 PltDF(ax, DF, ColorList=ColorList,
       ScaleFactor=ScaleFactor, Legend=True, XAxisDay=False)
 
-NPoints = 100
+NPoints = 200
 Left = 1.
 Right = 2.
 for i, Freq in enumerate(DF['Freqs'].unique()):
@@ -181,12 +181,12 @@ for i, Freq in enumerate(DF['Freqs'].unique()):
     # Generate Fluxes
     FluxesModel = np.asarray(
         Fitter.FluxGenerator.GetSpectral(NewTimes, NewFreqs, BestP))
-    print(FluxesModel)
+    # print(FluxesModel)
 
     plt.loglog(NewTimes, FluxesModel *
                ScaleFactor[i], '--', color=ColorList[i], linewidth=1.5)
 
-plt.savefig('light_curve_GRB110422A_tot.png')
+plt.savefig('light_curve_GRB110422A_fit.png')
 
 # Plot Distribution
 # Get nice latex label
@@ -213,4 +213,4 @@ fig = corner.corner(Chain, labels=Label, label_size=20, bins=40, plot_datapoints
                     label_kwargs={'fontsize': 18},
                     title_kwargs={"fontsize": 18})
 
-fig.savefig("contour_GRB110422A_tot.png")
+fig.savefig("contour_GRB110422A_fit.png")
