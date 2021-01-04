@@ -4,7 +4,7 @@ import emcee as em
 import matplotlib.pyplot as plt
 import pandas as pd
 import sys
-
+import math
 from JetFit import FitterClass
 
 # Parameters
@@ -41,7 +41,7 @@ FitBound = {
 #  1. If Explore == True: Fitting parameters are randomly distributed in whole parameter space.
 #  2. If Explore != True: Fitting parameters are randomly distributed around maximum posterior region, indicated by values in P.
 
-Explore = False
+Explore = True
 
 P = {
     'E': 1.25869069395227384,
@@ -63,8 +63,8 @@ GRB = './GRB050315_new.csv'
 
 # for demostaration
 SamplerType = "ParallelTempered"
-NTemps = 64
-NWalkers = 300
+NTemps = 4
+NWalkers = 16
 Threads = 8
 
 BurnLength = 10
@@ -95,7 +95,8 @@ Fitter.GetSampler(SamplerType, NTemps, NWalkers, Threads)
 # Burning in
 BurnInResult = Fitter.BurnIn(BurnLength=BurnLength)
 # Fitting and store chain results to Result
-Result = Fitter.RunSampler(RunLength=RunLength, Output=None)
+Result = Fitter.RunSampler(
+    RunLength=RunLength, Output=None)
 
 # Analysis: Below only depends on Result
 # Plot Light Curves
@@ -157,7 +158,6 @@ BestP = P.copy()
 for i, key in enumerate(Info['Fit']):
     BestP[key] = BestLinearParameter[i]
 
-
 # Plot best fitting light curves
 fig, ax = plt.subplots(figsize=(8, 8))
 # ColorList = ['orange', 'red', 'g', 'b']
@@ -168,7 +168,7 @@ ScaleFactor = [1.]
 PltDF(ax, DF, ColorList=ColorList,
       ScaleFactor=ScaleFactor, Legend=True, XAxisDay=False)
 
-NPoints = 200
+NPoints = len(Fluxes)
 Left = 1.
 Right = 2.
 for i, Freq in enumerate(DF['Freqs'].unique()):
@@ -180,7 +180,6 @@ for i, Freq in enumerate(DF['Freqs'].unique()):
     # Generate Fluxes
     FluxesModel = np.asarray(
         Fitter.FluxGenerator.GetSpectral(NewTimes, NewFreqs, BestP))
-    print(FluxesModel)
 
     plt.loglog(NewTimes, FluxesModel *
                ScaleFactor[i], '--', color=ColorList[i], linewidth=1.5)
@@ -207,9 +206,24 @@ for x in Info['Fit']:
 
 # plot contour with ChainConsume
 Chain = Result['Chain'].reshape((-1, FitDim))
+fit_pars = np.median(Chain, axis=0)
 fig = corner.corner(Chain, labels=Label, label_size=20, bins=40, plot_datapoints=False,
                     quantiles=[0.16, 0.5, 0.84], show_titles=True, color='darkblue',
                     label_kwargs={'fontsize': 18},
                     title_kwargs={"fontsize": 18})
 
 fig.savefig("contour_GRB050315.png")
+
+ChiSquare = np.sum(((Fluxes - FluxesModel)/FluxErrs)**2)
+DoF = len(Fluxes) - 8 - 1
+ChiSquareRed = ChiSquare/DoF
+
+data = []
+for idx_par, par in enumerate(Info['Fit']):
+    data.append([par, fit_pars[idx_par]])
+
+df = pd.DataFrame(data, columns=['Parameters', 'Values'])
+df2 = pd.DataFrame([['ChiSquare', ChiSquare], ['Dof', DoF], [
+                   'ChiSquareRed', ChiSquareRed]], columns=['Parameters', 'Values'])
+df3 = df.append(df2)
+df3.to_csv("summary.csv",  sep='\t\t')
