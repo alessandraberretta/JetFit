@@ -195,5 +195,13 @@ dmypy.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python,macos,linux,vscode
 
+# Personal Project Folders
+
 2014
 *.sh
+GRB
+contour
+lc
+csv
+light_curve
+ExampleFitter
