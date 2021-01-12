@@ -74,8 +74,8 @@ def main(args=None):
 
             write_file_sub(job_dir)
 
-            # subprocess.run(
-            # f"condor_submit -spool {job_dir}/sub", shell=True, check=True)
+            subprocess.run(
+                f"condor_submit -spool {job_dir}/sub", shell=True, check=True)
 
         else:
 
