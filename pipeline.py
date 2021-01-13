@@ -58,7 +58,7 @@ def write_file_sub(job_dir):
         script.write(f"log={job_dir}/output.log\n")
         script.write(f"output={job_dir}/output.out\n")
         script.write(f"error={job_dir}/output.error\n")
-        script.write('+ OWNER="AlessandraB"\n')
+        script.write('+OWNER="AlessandraB"\n')
         script.write("queue")
 
 
@@ -83,7 +83,7 @@ def main(args=None):
     parser.add_argument("-condor", "--condor",
                         dest="condor", action='store_true', help="condor")
     parser.add_argument("-pathdir", "--pathdir", type=str,
-                        dest="pathdir", help="Path data")
+                        dest="pathdir", help="Condor job directory")
     parser.add_argument("-pathdata", "--pathdata", type=str,
                         dest="pathdata", help="Download data")
     parser.add_argument("-localrepo", "--localrepo", type=str,
