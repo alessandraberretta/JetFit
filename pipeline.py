@@ -6,23 +6,47 @@ from argparse import ArgumentParser
 import os
 
 
-def write_bash_script(file, redshift, dist_lum):
+def write_bash_script(file, redshift, dist_lum, args):
 
     with open('script.sh', 'w') as script:
         script.write("#!/usr/bin/env bash\n")
         script.write("source activate JetFit\n")
-        script.write(
-            f"python fitter.py --grb {file} --z {redshift} --dL {dist_lum}")
+        if args.localrepo:
+            if args.pathout:
+                script.write(
+                    f"python fitter.py --grb {file} --z {redshift} --dL {dist_lum} --localrepo {args.localrepo} --pathout {args.pathout}")
+            else:
+                script.write(
+                    f"python fitter.py --grb {file} --z {redshift} --dL {dist_lum} --localrepo {args.localrepo}")
+        else:
+            if args.pathout:
+                script.write(
+                    f"python fitter.py --grb {file} --z {redshift} --dL {dist_lum} --pathout {args.pathout}")
+            else:
+                script.write(
+                    f"python fitter.py --grb {file} --z {redshift} --dL {dist_lum}")
     subprocess.run("chmod +x script.sh", shell=True, check=True)
 
 
-def write_bash_script_condor(file, redshift, dist_lum, job_dir, fitter_dir):
+def write_bash_script_condor(file, redshift, dist_lum, job_dir, fitter_dir, args):
 
     with open(job_dir + '/script.sh', 'w') as script:
         script.write("#!/usr/bin/env bash\n")
         script.write("conda activate fermi\n")
-        script.write(
-            f"python {fitter_dir}/fitter.py --grb {file} --z {redshift} --dL {dist_lum}")
+        if args.localrepo:
+            if args.pathout:
+                script.write(
+                    f"python {fitter_dir}/fitter.py --grb {file} --z {redshift} --dL {dist_lum} --localrepo {args.localrepo} --pathout {args.pathout}")
+            else:
+                script.write(
+                    f"python {fitter_dir}/fitter.py --grb {file} --z {redshift} --dL {dist_lum} --localrepo {args.localrepo}")
+        else:
+            if args.pathout:
+                script.write(
+                    f"python {fitter_dir}/fitter.py --grb {file} --z {redshift} --dL {dist_lum} --pathout {args.pathout}")
+            else:
+                script.write(
+                    f"python {fitter_dir}/fitter.py --grb {file} --z {redshift} --dL {dist_lum}")
     subprocess.run(f"chmod +x {job_dir}/script.sh", shell=True, check=True)
 
 
@@ -59,9 +83,13 @@ def main(args=None):
     parser.add_argument("-condor", "--condor",
                         dest="condor", action='store_true', help="condor")
     parser.add_argument("-pathdir", "--pathdir", type=str,
-                        dest="pathdir", help="pathdir")
+                        dest="pathdir", help="Path data")
     parser.add_argument("-pathdata", "--pathdata", type=str,
-                        dest="pathdata", help="download_data")
+                        dest="pathdata", help="Download data")
+    parser.add_argument("-localrepo", "--localrepo", type=str,
+                        dest="localrepo", help="Local repo")
+    parser.add_argument("-pathout", "--pathout", type=str,
+                        dest="pathout", help="Path output")
     args = parser.parse_args()
 
     if not args.pathdata:
@@ -88,7 +116,7 @@ def main(args=None):
             os.mkdir(job_dir)
 
             write_bash_script_condor(
-                grb_output, redshift[idx], dist_lum, job_dir, os.getcwd())
+                grb_output, redshift[idx], dist_lum, job_dir, os.getcwd(), args)
 
             write_file_sub(job_dir)
 
@@ -97,7 +125,7 @@ def main(args=None):
 
         else:
 
-            write_bash_script(grb_output, redshift[idx], dist_lum)
+            write_bash_script(grb_output, redshift[idx], dist_lum, args)
 
             subprocess.run("bash script.sh", shell=True, check=True)
 

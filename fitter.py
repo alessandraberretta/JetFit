@@ -7,7 +7,6 @@ import sys
 
 from argparse import ArgumentParser
 
-from JetFit import FitterClass
 
 # Parameters
 Table = "./Table.h5"
@@ -98,7 +97,16 @@ def main(args=None):
                         dest="redshift", help="GRB redshift")
     parser.add_argument("-dL", "--dL", type=float,
                         dest="dist_lum", help="GRB luminosity distance")
+    parser.add_argument("-localrepo", "--localrepo", type=str,
+                        dest="localrepo", help="Local repo")
+    parser.add_argument("-pathout", "--pathout", type=str,
+                        dest="pathout", help="Path output")
     args = parser.parse_args()
+
+    if args.localrepo:
+        sys.path.append(args.localrepo)
+
+    from JetFit import FitterClass
 
     GRB = args.grb_data_file
     redshift = args.redshift
@@ -121,12 +129,12 @@ def main(args=None):
     }
 
     SamplerType = "ParallelTempered"
-    NTemps = 10
-    NWalkers = 16
+    NTemps = 20
+    NWalkers = 100
     Threads = 8
 
-    BurnLength = 10
-    RunLength = 10
+    BurnLength = 100
+    RunLength = 100
 
     # Fitter
     # Initialize Fitter
@@ -189,8 +197,8 @@ def main(args=None):
         plt.loglog(NewTimes, FluxesModel *
                    ScaleFactor[i], '--', color=ColorList[i], linewidth=1.5)
 
-    plt.savefig("/Users/alessandraberretta/JetFit/2020/lc_" +
-                GRB[:GRB.rfind('.')] + ".png")
+    plt.savefig(args.pathout + "/lc_" +
+                GRB[GRB.rfind('/')+1:GRB.rfind('.')] + ".png")
 
     # Plot Distribution
     # Get nice latex label
@@ -217,8 +225,8 @@ def main(args=None):
                         label_kwargs={'fontsize': 18},
                         title_kwargs={"fontsize": 18})
 
-    fig.savefig("/Users/alessandraberretta/JetFit/2020/contour_" +
-                GRB[:GRB.rfind('.')] + ".png")
+    fig.savefig(args.pathout + "/contour_" +
+                GRB[GRB.rfind('/')+1:GRB.rfind('.')] + ".png")
 
     ChiSquare = np.sum(((Fluxes - FluxesModel)/FluxErrs)**2)
     DoF = len(Fluxes) - 8 - 1
@@ -232,8 +240,8 @@ def main(args=None):
     df2 = pd.DataFrame([['Redshift', redshift], ['Luminosity distance', dist_lum_cm], ['ChiSquare', ChiSquare], ['Dof', DoF], [
         'ChiSquareRed', ChiSquareRed]], columns=['Parameters', 'Values'])
     df3 = df.append(df2)
-    df3.to_csv("/Users/alessandraberretta/JetFit/2020/summary_" +
-               GRB[:GRB.rfind('.')] + ".csv",  sep='\t')
+    df3.to_csv(args.pathout + "/summary_" +
+               GRB[GRB.rfind('/')+1:GRB.rfind('.')] + ".csv",  sep='\t')
 
 
 main()
