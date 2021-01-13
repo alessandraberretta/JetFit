@@ -86,7 +86,7 @@ def download_single_grb(driver: "WebDriver", grbdf: pd.core.frame.DataFrame, grb
                     sleep(0.5)
                     waitFor(driver, (By.TAG_NAME, "pre"))
                     data = get_data(driver)
-                    out_filename = f"GRB_{grb}.data"
+                    out_filename = f"GRB_{grb}_{redshift}.data"
                     with open(out_filename, "w") as out_file:
                         out_file.write(data)
                     print(f"Data written in {out_filename}")

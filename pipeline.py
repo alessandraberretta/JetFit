@@ -38,6 +38,16 @@ def write_file_sub(job_dir):
         script.write("queue")
 
 
+def use_downloaded_data(pathdata):
+
+    list_file = [pathdata + '/' +
+                 file for file in os.listdir(pathdata) if file.endswith('.data')]
+    list_redshift = [float(i[i.rfind('_')+1:i.rfind('.')]) for i in list_file]
+
+    print(f"Has been find {len(list_file)} in data folder: {pathdata}")
+    return list_file, list_redshift
+
+
 def main(args=None):
 
     parser = ArgumentParser(description='Pipeline for GRB analysis')
@@ -50,9 +60,17 @@ def main(args=None):
                         dest="condor", action='store_true', help="condor")
     parser.add_argument("-pathdir", "--pathdir", type=str,
                         dest="pathdir", help="pathdir")
+    parser.add_argument("-pathdata", "--pathdata", type=str,
+                        dest="pathdata", help="download_data")
     args = parser.parse_args()
 
-    grb_input, redshift = download_data(year=args.grb_year)
+    if not args.pathdata:
+
+        grb_input, redshift = download_data(year=args.grb_year)
+
+    else:
+
+        grb_input, redshift = use_downloaded_data(args.pathdata)
 
     for idx, val in enumerate(grb_input):
 
@@ -81,7 +99,7 @@ def main(args=None):
 
             write_bash_script(grb_output, redshift[idx], dist_lum)
 
-            subprocess.run("bash script.sh", shell=True, check=True)
+            # subprocess.run("bash script.sh", shell=True, check=True)
 
 
 if __name__ == '__main__':
