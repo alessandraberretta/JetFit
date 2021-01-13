@@ -20,7 +20,7 @@ def write_bash_script_condor(file, redshift, dist_lum, job_dir, fitter_dir):
 
     with open(job_dir + '/script.sh', 'w') as script:
         script.write("#!/usr/bin/env bash\n")
-        script.write("source activate JetFit\n")
+        script.write("conda activate fermi\n")
         script.write(
             f"python {fitter_dir}/fitter.py --grb {file} --z {redshift} --dL {dist_lum}")
     subprocess.run(f"chmod +x {job_dir}/script.sh", shell=True, check=True)
