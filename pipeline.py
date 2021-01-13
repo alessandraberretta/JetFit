@@ -99,7 +99,7 @@ def main(args=None):
 
             write_bash_script(grb_output, redshift[idx], dist_lum)
 
-            # subprocess.run("bash script.sh", shell=True, check=True)
+            subprocess.run("bash script.sh", shell=True, check=True)
 
 
 if __name__ == '__main__':
