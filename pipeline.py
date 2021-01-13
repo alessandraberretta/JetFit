@@ -116,7 +116,7 @@ def main(args=None):
             os.mkdir(job_dir)
 
             write_bash_script_condor(
-                grb_output, redshift[idx], dist_lum, job_dir, os.getcwd(), args)
+                grb_output, redshift[idx], dist_lum, job_dir, os.getenv('PWD'), args)
 
             write_file_sub(job_dir)
 
