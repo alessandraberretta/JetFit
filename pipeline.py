@@ -35,6 +35,7 @@ def write_bash_script_condor(file, redshift, dist_lum, job_dir, fitter_dir, args
         script.write(
             "source /cvmfs/fermi.local.repo/anaconda3/etc/profile.d/conda.sh\n")
         script.write("conda activate fermi\n")
+        script.write('export MPLBACKEND="agg"\n')
         if args.localrepo:
             if args.pathout:
                 script.write(
