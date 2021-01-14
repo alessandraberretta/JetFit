@@ -7,10 +7,6 @@ import sys
 
 from argparse import ArgumentParser
 
-
-# Parameters
-Table = "./Table.h5"
-
 Info = {
     # Fitting parameters (Parameter names see P dictionary below)
     'Fit': np.array(['Eta0', 'GammaB', 'theta_obs', 'E', 'epsb', 'epse', 'n', 'p']),
@@ -103,8 +99,11 @@ def main(args=None):
                         dest="pathout", help="Path output")
     args = parser.parse_args()
 
+    Table = "./Table.h5"
+
     if args.localrepo:
         sys.path.append(args.localrepo)
+        Table = args.localrepo + "/Table.h5"
 
     from JetFit import FitterClass
 
