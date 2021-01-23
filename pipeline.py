@@ -11,6 +11,7 @@ def write_bash_script(file, redshift, dist_lum, args):
     with open('script.sh', 'w') as script:
         script.write("#!/usr/bin/env bash\n")
         script.write("source activate JetFit\n")
+        script.write('export MPLBACKEND="agg"\n')
         if args.localrepo:
             if args.pathout:
                 script.write(
