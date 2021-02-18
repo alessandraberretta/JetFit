@@ -31,7 +31,6 @@ FitBound = {
     'p': np.array([2., 5.])
 }
 
-
 # P:
 # For non-fiting parameters, P set default values.
 # For fitting paramters, P:
@@ -97,6 +96,8 @@ def main(args=None):
                         dest="localrepo", help="Local repo")
     parser.add_argument("-pathout", "--pathout", type=str,
                         dest="pathout", help="Path output")
+    parser.add_argument("-erg", "--ergcm2s", default=False,
+                        action='store_true', dest="ergcm2s", help="Fit with integrated flux")
     args = parser.parse_args()
 
     Table = "./Table.h5"
@@ -127,20 +128,34 @@ def main(args=None):
         'z': redshift
     }
 
-    SamplerType = "ParallelTempered"
-    NTemps = 20
-    NWalkers = 100
-    Threads = 8
+    if args.ergcm2s:
 
-    BurnLength = 100
-    RunLength = 100
+        Info['FluxType'] = 'Integrated'
+
+    SamplerType = "ParallelTempered"
+    NTemps = 60
+    NWalkers = 380
+    Threads = 2
+
+    BurnLength = 10
+    RunLength = 10
 
     # Fitter
     # Initialize Fitter
     Fitter = FitterClass(Table, Info, FitBound, P, Explore=Explore)
     # LoadData
     DF = pd.read_csv(GRB)
-    Times, Fluxes, FluxErrs, Freqs = DF['Times'].values, DF['Fluxes'].values, DF['FluxErrs'].values, DF['Freqs'].values
+
+    Times, Fluxes, FluxErrs = DF['Times'].values, DF['Fluxes'].values, DF['FluxErrs'].values
+
+    if not args.ergcm2s:
+
+        Freqs = DF['Freqs'].values
+
+    else:
+
+        Freqs = np.array([[7.254E+16, 2.418E+18]]*len(Fluxes))
+
     Fitter.LoadData(Times, Fluxes, FluxErrs, Freqs)
     # Initialize sampler
     Fitter.GetSampler(SamplerType, NTemps, NWalkers, Threads)
@@ -176,25 +191,36 @@ def main(args=None):
     ColorList = ['black']
     ScaleFactor = [1.]
 
-    PltDF(ax, DF, ColorList=ColorList,
-          ScaleFactor=ScaleFactor, Legend=True, XAxisDay=False)
-
     NPoints = len(Fluxes)
     Left = 1.
     Right = 2.
-    for i, Freq in enumerate(DF['Freqs'].unique()):
-        idx = DF['Freqs'] == Freq
-        NewTimes = np.linspace(DF['Times'].min()*Left,
-                               DF['Times'].max()*Right, NPoints)
-        NewFreqs = np.ones(len(NewTimes))*Freq
+    NewTimes = np.linspace(DF['Times'].min()*Left,
+                           DF['Times'].max()*Right, NPoints)
 
-        # Generate Fluxes
+    if not args.ergcm2s:
+
+        PltDF(ax, DF, ColorList=ColorList,
+              ScaleFactor=ScaleFactor, Legend=True, XAxisDay=False)
+        for i, Freq in enumerate(DF['Freqs'].unique()):
+            idx = DF['Freqs'] == Freq
+            NewFreqs = np.ones(len(NewTimes))*Freq
+            # Generate Fluxes
+            FluxesModel = np.asarray(
+                Fitter.FluxGenerator.GetSpectral(NewTimes, NewFreqs, BestP))
+            plt.loglog(NewTimes, FluxesModel *
+                       ScaleFactor[i], '--', color=ColorList[i], linewidth=1.5)
+
+    else:
+
         FluxesModel = np.asarray(
-            Fitter.FluxGenerator.GetSpectral(NewTimes, NewFreqs, BestP))
-        # print(FluxesModel)
-
-        plt.loglog(NewTimes, FluxesModel *
-                   ScaleFactor[i], '--', color=ColorList[i], linewidth=1.5)
+            Fitter.FluxGenerator.GetIntegratedFlux(NewTimes, Freqs, BestP))
+        plt.loglog(NewTimes, FluxesModel, '--', color='black', linewidth=1.5)
+        ax = plt.gca()
+        ax.errorbar(Times, Fluxes, yerr=FluxErrs, fmt='.', color='black')
+        ax.set_ylabel('Flux (0.3 - 10 keV) (erg/cm^2/s)')
+        ax.set_xlabel('Time (s)')
+        ax.set_yscale('log')
+        ax.set_xscale('log')
 
     plt.savefig(args.pathout + "/lc_" +
                 GRB[GRB.rfind('/')+1:GRB.rfind('.')] + ".png")
@@ -224,6 +250,14 @@ def main(args=None):
                         label_kwargs={'fontsize': 18},
                         title_kwargs={"fontsize": 18})
 
+    quantiles_0_16 = [corner.quantile(Chain[:, idx], 0.16)
+                      for idx in range(len(Info['Fit']))]
+    quantiles_0_84 = [corner.quantile(Chain[:, idx], 0.84)
+                      for idx in range(len(Info['Fit']))]
+
+    err_neg = [-(i - j) for i, j in zip(fit_pars, quantiles_0_16)]
+    err_pos = [abs(i - j) for i, j in zip(fit_pars, quantiles_0_84)]
+
     fig.savefig(args.pathout + "/contour_" +
                 GRB[GRB.rfind('/')+1:GRB.rfind('.')] + ".png")
 
@@ -233,12 +267,14 @@ def main(args=None):
 
     data = []
     for idx_par, par in enumerate(Info['Fit']):
-        data.append([par, fit_pars[idx_par]])
+        data.append([par, fit_pars[idx_par], err_neg[idx_par]
+                     [0], err_pos[idx_par][0]])
 
-    df = pd.DataFrame(data, columns=['Parameters', 'Values'])
+    df = pd.DataFrame(
+        data, columns=['Parameters', 'Values', 'err_neg', 'err_pos'])
     df2 = pd.DataFrame([['Redshift', redshift], ['Luminosity distance', dist_lum_cm], ['ChiSquare', ChiSquare], ['Dof', DoF], [
         'ChiSquareRed', ChiSquareRed]], columns=['Parameters', 'Values'])
-    df3 = df.append(df2)
+    df3 = df.append(df2, sort=False)
     df3.to_csv(args.pathout + "/summary_" +
                GRB[GRB.rfind('/')+1:GRB.rfind('.')] + ".csv",  sep='\t')
 

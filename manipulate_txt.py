@@ -2,24 +2,35 @@ import pandas as pd
 from decimal import Decimal
 
 
-def manipulate_txt(file):
+def manipulate_txt(file, ergcm2s=False):
 
     with open(file, 'r') as file_input:
         read = file_input.readlines()
 
     last_row = -1
-    xtrpcflux_found = False
+    found = False
+
     for idx, i in enumerate(read):
-        if "xrtpcflux" in i:
-            first_row = idx+1
-            xtrpcflux_found = True
-        if "NO" in i:
-            if xtrpcflux_found:
-                last_row = idx
+        if ergcm2s:
+            if "PC" in i and not "PCUL" in i:
+                first_row = idx+1
+                found = True
+                continue
+            if "NO" in i:
+                if found:
+                    last_row = idx
+        else:
+            if "xrtpcflux" in i:
+                first_row = idx+1
+                found = True
+            if "NO" in i:
+                if found:
+                    last_row = idx
 
     rows = read[first_row:last_row]
 
     if len(rows) <= 10:
+        print("Def csv file not produced... len < 10")
         return ""
 
     with open(file[:file.rfind('.')]+".csv", 'w') as file_output:
@@ -34,8 +45,8 @@ def manipulate_txt(file):
     del df["TimeBndsNeg"]
     del df["FluxErrsNeg"]
 
-    df["Fluxes"] = 1000 * df["Fluxes"]
-    df["FluxErrs"] = 1000 * df["FluxErrs"]
+    df["Fluxes"] = df["Fluxes"]
+    df["FluxErrs"] = df["FluxErrs"]
     df["Times"] = ['%.6E' % Decimal(x) for x in df['Times']]
     df["Fluxes"] = ['%.6E' % Decimal(y) for y in df['Fluxes']]
     df["FluxErrs"] = ['%.6E' % Decimal(z) for z in df['FluxErrs']]

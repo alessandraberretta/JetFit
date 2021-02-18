@@ -59,7 +59,7 @@ class Command(str, Enum):
 '''
 
 
-def download_single_grb(driver: "WebDriver", grbdf: pd.core.frame.DataFrame, grb_sr: pd.Series, grb: str = ""):
+def download_single_grb(driver: "WebDriver", grbdf: pd.core.frame.DataFrame, grb_sr: pd.Series, grb: str = "", ergcm2s: bool = False):
     print(f"Downloading data for GRB {grb}")
     out_filename = ""
     redshift = -999
@@ -75,28 +75,47 @@ def download_single_grb(driver: "WebDriver", grbdf: pd.core.frame.DataFrame, grb
                 link.click()
                 sleep(0.5)
                 waitFor(driver, (By.ID, "related"))
-                link = driver.find_element_by_link_text("Burst Analyser")
-                link.click()
-                sleep(0.5)
-                waitFor(driver, (By.ID, "XRT"))
-                try:
-                    link = driver.find_element_by_id(
-                        "xrt_DENSITY_makeDownload")
+                if ergcm2s:
+                    link = driver.find_element_by_link_text("Light curve")
                     link.click()
                     sleep(0.5)
-                    waitFor(driver, (By.TAG_NAME, "pre"))
-                    data = get_data(driver)
-                    out_filename = f"GRB_{grb}_{redshift}.data"
-                    with open(out_filename, "w") as out_file:
-                        out_file.write(data)
-                    print(f"Data written in {out_filename}")
-                except NoSuchElementException:
-                    print(f"Cannot download GRB {grb} data...")
+                    try:
+                        link = driver.find_element_by_id(
+                            "flux_makeDownload")
+                        link.click()
+                        sleep(0.5)
+                        waitFor(driver, (By.TAG_NAME, "pre"))
+                        data = get_data(driver)
+                        out_filename = f"GRB_{grb}_{redshift}.data"
+                        with open(out_filename, "w") as out_file:
+                            out_file.write(data)
+                        print(f"Data written in {out_filename}")
+                    except NoSuchElementException:
+                        print(f"Cannot download GRB {grb} data...")
+                else:
+
+                    link = driver.find_element_by_link_text("Burst Analyser")
+                    link.click()
+                    sleep(0.5)
+                    waitFor(driver, (By.ID, "XRT"))
+                    try:
+                        link = driver.find_element_by_id(
+                            "xrt_DENSITY_makeDownload")
+                        link.click()
+                        sleep(0.5)
+                        waitFor(driver, (By.TAG_NAME, "pre"))
+                        data = get_data(driver)
+                        out_filename = f"GRB_{grb}_{redshift}.data"
+                        with open(out_filename, "w") as out_file:
+                            out_file.write(data)
+                        print(f"Data written in {out_filename}")
+                    except NoSuchElementException:
+                        print(f"Cannot download GRB {grb} data...")
 
     return out_filename, redshift
 
 
-def download_year_grb(driver: "WebDriver", grbdf: pd.core.frame.DataFrame, grb_sr: pd.Series, year: int = -1):
+def download_year_grb(driver: "WebDriver", grbdf: pd.core.frame.DataFrame, grb_sr: pd.Series, year: str = "", ergcm2s: bool = False):
     print(f"Downloading 20{year} GRB data")
     filenames = []
     redshifts = []
@@ -104,7 +123,7 @@ def download_year_grb(driver: "WebDriver", grbdf: pd.core.frame.DataFrame, grb_s
     for tr in getGRBList(driver):
         if f"GRB {year}" in tr.get_text():
             tmp_filename, tmp_redshift = download_single_grb(driver, grbdf, grb_sr, str(
-                tr.get_text()[tr.get_text().find(' ')+1: tr.get_text().find('h') - 2]))
+                tr.get_text()[tr.get_text().find(' ')+1: tr.get_text().find('h') - 2]), ergcm2s)
             if tmp_filename and tmp_redshift != -999:
                 filenames.append(tmp_filename)
                 redshifts.append(tmp_redshift)
@@ -112,7 +131,7 @@ def download_year_grb(driver: "WebDriver", grbdf: pd.core.frame.DataFrame, grb_s
     return filenames, redshifts
 
 
-def download_data(grb: str = "", year: int = -1, headless: bool = False):
+def download_data(grb: str = "", year: str = "", headless: bool = False, ergcm2s: bool = False):
     chrome_options = Options()
 
     if headless:
@@ -133,10 +152,12 @@ def download_data(grb: str = "", year: int = -1, headless: bool = False):
 
     if grb != "":
         # Search a specific GRB
-        filename, redshift = download_single_grb(driver, drbdf, grb_sr, grb)
+        filename, redshift = download_single_grb(
+            driver, grbdf, grb_sr, grb, ergcm2s)
     elif year != -1:
         # Search all GRBs in a specific year
-        filename, redshift = download_year_grb(driver, grbdf, grb_sr, year)
+        filename, redshift = download_year_grb(
+            driver, grbdf, grb_sr, year, ergcm2s)
 
     driver.close()
 

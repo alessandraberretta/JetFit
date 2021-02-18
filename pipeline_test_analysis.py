@@ -3,6 +3,8 @@ from manipulate_txt import manipulate_txt
 from cosm_calc import cosm_calc
 import subprocess
 from argparse import ArgumentParser
+import numpy as np
+import sys
 import os
 
 
@@ -85,7 +87,6 @@ def write_bash_script_condor(file, redshift, dist_lum, job_dir, fitter_dir, args
                         f"python {fitter_dir}/fitter.py --grb {file} --z {redshift} --dL {dist_lum}")
     subprocess.run(f"chmod +x {job_dir}/script.sh", shell=True, check=True)
 
-
 def write_file_sub(job_dir):
 
     with open(job_dir + '/sub', 'w') as script:
@@ -114,7 +115,7 @@ def main(args=None):
 
     parser.add_argument("-grb", "--grb", type=str,
                         dest="grb_name", help="GRB name")
-    parser.add_argument("-year", "--year", type=str,
+    parser.add_argument("-year", "--year", type=int,
                         dest="grb_year", help="GRB year")
     parser.add_argument("-condor", "--condor",
                         dest="condor", action='store_true', help="condor")
@@ -126,47 +127,90 @@ def main(args=None):
                         dest="localrepo", help="Local repo")
     parser.add_argument("-pathout", "--pathout", type=str,
                         dest="pathout", help="Path output")
+    parser.add_argument("-pathdef", "--pathdef", type=str,
+                        dest="pathdef", help="Path of def file with removed flares")
     parser.add_argument("-erg", "--ergcm2s", default=False,
                         action='store_true', dest="ergcm2s", help="Fit with integrated flux")
+    parser.add_argument("-psd", "--pathsimulateddata", type=str,
+                        dest="psd", help="Path to simulated data")
     args = parser.parse_args()
 
-    if not args.pathdata:
 
-        grb_input, redshift = download_data(
-            year=args.grb_year, ergcm2s=args.ergcm2s)
+    if args.psd: 
+        list_file = [args.psd + '/' +
+                 file for file in os.listdir(args.psd) if file.endswith('.csv')]
+        list_redshift = [0.002]*233
+        for idx, val in enumerate(list_file):
+            dist_lum = cosm_calc(list_redshift[idx])
+            if args.condor:
+                job_dir = args.pathdir + '/' + 'job_' + str(idx)
+                os.mkdir(job_dir)
+                write_bash_script_condor(val, list_redshift[idx], dist_lum, job_dir, os.getenv('PWD'), args)
+                write_file_sub(job_dir)
+                subprocess.run(
+                    f"condor_submit -spool {job_dir}/sub", shell=True, check=True)
+            else:
+                write_bash_script(val, list_redshift[idx], dist_lum, args)
+                subprocess.run("bash script.sh", shell=True, check=True)
+        sys.exit()
+                
 
-    else:
+    if args.pathdef: 
 
-        grb_input, redshift = use_downloaded_data(args.pathdata)
+        list_file = [args.pathdef + '/' +
+                 file for file in os.listdir(args.pathdef) if file.endswith('.csv')]
+        list_redshift = [float(i[i.rfind('_')+1:i.rfind('.')]) for i in list_file]
+        for idx, val in enumerate(list_file):
+            dist_lum = cosm_calc(list_redshift[idx])
+            if args.condor:
+                job_dir = args.pathdir + '/' + 'job_' + str(idx)
+                os.mkdir(job_dir)
+                write_bash_script_condor(val, list_redshift[idx], dist_lum, job_dir, os.getenv('PWD'), args)
+                write_file_sub(job_dir)
+                subprocess.run(
+                    f"condor_submit -spool {job_dir}/sub", shell=True, check=True)
+            else:
+                write_bash_script(val, list_redshift[idx], dist_lum, args)
+                subprocess.run("bash script.sh", shell=True, check=True)
 
-    for idx, val in enumerate(grb_input):
+    else: 
 
-        dist_lum = cosm_calc(redshift[idx])
+        if not args.pathdata:
 
-        grb_output = manipulate_txt(val, ergcm2s=args.ergcm2s)
-
-        if grb_output == "":
-            continue
-
-        if args.condor:
-
-            job_dir = args.pathdir + '/' + 'job_' + str(idx)
-
-            os.mkdir(job_dir)
-
-            write_bash_script_condor(
-                grb_output, redshift[idx], dist_lum, job_dir, os.getenv('PWD'), args)
-
-            write_file_sub(job_dir)
-
-            subprocess.run(
-                f"condor_submit -spool {job_dir}/sub", shell=True, check=True)
+            grb_input, redshift = download_data(year=args.grb_year)
 
         else:
 
-            write_bash_script(grb_output, redshift[idx], dist_lum, args)
+            grb_input, redshift = use_downloaded_data(args.pathdata)
 
-            subprocess.run("bash script.sh", shell=True, check=True)
+        for idx, val in enumerate(grb_input):
+
+            dist_lum = cosm_calc(redshift[idx])
+
+            grb_output = manipulate_txt(val)
+
+            if grb_output == "":
+                continue
+
+            if args.condor:
+
+                job_dir = args.pathdir + '/' + 'job_' + str(idx)
+
+                os.mkdir(job_dir)
+
+                write_bash_script_condor(
+                    grb_output, redshift[idx], dist_lum, job_dir, os.getenv('PWD'), args)
+
+                write_file_sub(job_dir)
+
+                subprocess.run(
+                    f"condor_submit -spool {job_dir}/sub", shell=True, check=True)
+
+            else:
+
+                write_bash_script(grb_output, redshift[idx], dist_lum, args)
+
+                subprocess.run("bash script.sh", shell=True, check=True)
 
 
 if __name__ == '__main__':

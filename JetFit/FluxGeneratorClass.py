@@ -142,6 +142,7 @@ class FluxGeneratorClass:
         if np.isnan(F_peak[0]):
             return F_peak
         else:
+
             LFreqs = Freqs[:, 0]
             HFreqs = Freqs[:, 1]
 
