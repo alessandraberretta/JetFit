@@ -135,7 +135,6 @@ class InterpolatorClass:
             Nans = [np.nan for x in range(len(Position))]
             f_peak, f_nu_c, f_nu_m = Nans, Nans, Nans
             return f_peak, f_nu_c, f_nu_m
-
         '''
         try:
             if self._Table['LogTable']:

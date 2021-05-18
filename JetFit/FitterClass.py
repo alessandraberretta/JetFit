@@ -305,13 +305,16 @@ def LogLike(FitParameter, Info, P, FluxGenerator, Times, Freqs, Fluxes, FluxErrs
         FluxesModel = FluxGenerator.GetIntegratedFlux(Times, Freqs, P)
     else:
         raise ValueError("Integrated Flux has not implemented!")
-
     if np.isnan(FluxesModel[0]):
         return -np.inf
     else:
         ChiSquare = np.sum(((Fluxes - FluxesModel)/FluxErrs)**2)
         Like = -0.5*ChiSquare
         return Like
+
+
+# def GetChi2(FluxesModel, Fluxes, FluxErrs):
+# return np.sum(((Fluxes - FluxesModel)/FluxErrs)**2)
 
 
 def LogPosterior(FitParameter, FitBound, Info, P, FluxGenerator, Times, Freqs, Fluxes, FluxErrs):

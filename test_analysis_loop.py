@@ -21,7 +21,7 @@ Info = {
     'Log': np.array(['E', 'n', 'epse', 'epsb']),
     'LogType': 'Log10',                              # Log scale type: Log10 or Log
     # Prior for observation angle: Sine or Uniform
-    'ThetaObsPrior': 'Sine',
+    'ThetaObsPrior': 'Uniform',
     # Flux type: Spectral or Integrated
     'FluxType': 'Integrated'
 }
@@ -59,21 +59,53 @@ def random_generator(min, max, num, seed=None):
 # For fitting paramters, P:
 #  1. If Explore == True: Fitting parameters are randomly distributed in whole parameter space.
 #  2. If Explore != True: Fitting parameters are randomly distributed around maximum posterior region, indicated by values in P.
+# p_loop = np.random.normal(2.6333493591554804, 0.52666987183, 500)
+# theta_obs_loop = np.random.normal(0.04769798916899842, 0.00953959783, 500)
 
 Explore = False
 
-E_loop = np.linspace(0.000013820379580210597, 800.93820379580210597, 100)
-Eta0_loop = np.linspace(2.470704868761726, 9.470704868761726, 100)
-GammaB_loop = np.linspace(3.1073965955950014, 11.1073965955950014, 100)
-epsb_loop = np.linspace(0.000013965955950014, 0.93965955950014, 100)
-epse_loop = np.linspace(0.00001852638742, 0.9852638742, 100)
-n_loop = np.linspace(0.00001852638742, 900.9852638742, 100)
-p_loop = np.linspace(2.0, 3.5, 100)
-theta_obs_loop = np.linspace(0.024928474829, 0.84928474829, 100)
+E_loop = np.linspace(0.09521441637, 0.22216697153, 100)
+Eta0_loop = np.linspace(5.81878175371, 8.72817263057, 100)
+GammaB_loop = np.linspace(5.60073864002, 8.40110796002, 100)
+epsb_loop = np.linspace(0.00106589652, 0.00159884478, 100)
+epse_loop = np.linspace(0.02443670305, 0.05701897379, 100)
+n_loop = np.linspace(0.07896976823, 0.11845465234, 100)
+p_loop = np.linspace(2.18667948733, 3.28001923099, 100)
+theta_obs_loop = np.linspace(0.014158391336, 0.02123758699, 100)
+
 
 P_random = []
 
-for i in range(300):
+P1 = {
+    'E': 0.15869069395227384,
+    'Eta0': 7.273477192135503,
+    'GammaB': 7.000923300022666,
+    'dL': 0.00264908,
+    'epsb': 0.0013323706571267526,
+    'epse': 0.04072783842837688,
+    'n': 0.09871221028954489,
+    'p': 2.7333493591554804,
+    'theta_obs': 0.01769798916899842,
+    'xiN': 1.0,
+    'z': 0.002
+}
+
+P2 = {
+    'E': 0.015869069395227384,
+    'Eta0': 5.973477192135503,
+    'GammaB': 9.000923300022666,
+    'dL': 0.00264908,
+    'epsb': 0.0013323706571267526,
+    'epse': 0.05072783842837688,
+    'n': 1.9871221028954489,
+    'p': 2.4333493591554804,
+    'theta_obs': 0.1,
+    'xiN': 1.0,
+    'z': 0.002
+}
+
+
+for i in range(100):
 
     tmp_P = {
         'E': np.random.choice(E_loop),
@@ -91,25 +123,11 @@ for i in range(300):
 
     P_random.append(tmp_P)
 
-P1 = {
-    'E': 0.000023820379580210597,
-    'Eta0': 2.470704868761726,
-    'GammaB': 3.1073965955950014,
-    'dL': 0.00264908,
-    'epsb': 0.000013965955950014,
-    'epse': 0.00001852638742,
-    'n': 0.00001852638742,
-    'p': 2.110109894912128,
-    'theta_obs': 0.02038361881794046,
-    'xiN': 1.0,
-    'z': 0.002
-}
-
 fig, ax = plt.subplots(figsize=(8, 8))
 ColorList = ['black']
 ScaleFactor = [1.]
-start_point = 1.12e2
-end_point = 6.78e5
+start_point = 5.12e3
+end_point = 6.78e6
 
 NewTimes = np.arange(start_point, end_point,
                      step=(end_point-start_point)/10000)
@@ -122,7 +140,7 @@ for idx, P in enumerate(P_random):
     for idx_par, par in enumerate(Info['Fit']):
         data_P.append([par, P[par]])
     df_P = pd.DataFrame(data_P, columns=['Parameters', 'Values'])
-    df_P.to_csv("/Users/alessandraberretta/JetFit/summary_P{}.csv".format(idx),
+    df_P.to_csv('/Users/alessandraberretta/JetFit/data_100_all_P1/summary_P1/summary_P{}_all_P1.csv'.format(idx),
                 index=False,  sep='\t')
 
     points = random_generator(10, 100, 1, seed=np.random.randint(1, 100000))
@@ -160,10 +178,10 @@ for idx, P in enumerate(P_random):
             'Flux (0.3 - 10 keV) (erg/cm^2/s)')
         ax.set_xlabel('Time (s)')
         plt.savefig(
-            '/Users/alessandraberretta/JetFit/lc_P{}_{}.png'.format(idx, val))
+            '/Users/alessandraberretta/JetFit/data_100_all_P1/lc_P1/lc_P{}_{}_all_P1.png'.format(idx, val))
         plt.clf()
         d = {'Times': NewTimes_red, 'Freqs': Freqs,
-             'Fluxes': FluxesModel_diff, 'FluxErrs': 0.2*FluxesModel_diff_err}
+             'Fluxes': FluxesModel_diff, 'FluxErrs': 0.25*FluxesModel_diff_err}
         df = pd.DataFrame(
             data=d, columns=['Times', 'Freqs', 'Fluxes', 'FluxErrs'])
         df["Times"] = ['%.6E' %
@@ -174,5 +192,14 @@ for idx, P in enumerate(P_random):
                         Decimal(y) for y in df['Fluxes']]
         df["FluxErrs"] = ['%.6E' %
                           Decimal(z) for z in df['FluxErrs']]
+        d2 = {'Times': NewTimes_red, 'FluxesModel': FluxesModel}
+        df2 = pd.DataFrame(
+            data=d2, columns=['Times', 'FluxesModel'])
+        df2["Times"] = ['%.6E' %
+                        Decimal(x) for x in df2['Times']]
+        df2["FluxesModel"] = ['%.6E' %
+                              Decimal(x) for x in df2['FluxesModel']]
         df.to_csv(
-            '/Users/alessandraberretta/JetFit/data_P{}_{}.csv'.format(idx, val), index=False)
+            '/Users/alessandraberretta/JetFit/data_100_all_P1/data_100_all_P1/data_P{}_{}_all_P1.csv'.format(idx, val), index=False)
+        df2.to_csv(
+            '/Users/alessandraberretta/JetFit/data_100_all_P1/data_100_all_P1/tf_P{}_{}_all_P1.csv'.format(idx, val), index=False)

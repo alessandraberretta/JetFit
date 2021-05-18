@@ -87,6 +87,7 @@ def write_bash_script_condor(file, redshift, dist_lum, job_dir, fitter_dir, args
                         f"python {fitter_dir}/fitter.py --grb {file} --z {redshift} --dL {dist_lum}")
     subprocess.run(f"chmod +x {job_dir}/script.sh", shell=True, check=True)
 
+
 def write_file_sub(job_dir):
 
     with open(job_dir + '/sub', 'w') as script:
@@ -135,17 +136,17 @@ def main(args=None):
                         dest="psd", help="Path to simulated data")
     args = parser.parse_args()
 
-
-    if args.psd: 
+    if args.psd:
         list_file = [args.psd + '/' +
-                 file for file in os.listdir(args.psd) if file.endswith('.csv')]
-        list_redshift = [0.002]*233
+                     file for file in os.listdir(args.psd) if file.endswith('.csv')]
+        list_redshift = [0.002]*5
         for idx, val in enumerate(list_file):
             dist_lum = cosm_calc(list_redshift[idx])
             if args.condor:
                 job_dir = args.pathdir + '/' + 'job_' + str(idx)
                 os.mkdir(job_dir)
-                write_bash_script_condor(val, list_redshift[idx], dist_lum, job_dir, os.getenv('PWD'), args)
+                write_bash_script_condor(
+                    val, list_redshift[idx], dist_lum, job_dir, os.getenv('PWD'), args)
                 write_file_sub(job_dir)
                 subprocess.run(
                     f"condor_submit -spool {job_dir}/sub", shell=True, check=True)
@@ -153,19 +154,20 @@ def main(args=None):
                 write_bash_script(val, list_redshift[idx], dist_lum, args)
                 subprocess.run("bash script.sh", shell=True, check=True)
         sys.exit()
-                
 
-    if args.pathdef: 
+    if args.pathdef:
 
         list_file = [args.pathdef + '/' +
-                 file for file in os.listdir(args.pathdef) if file.endswith('.csv')]
-        list_redshift = [float(i[i.rfind('_')+1:i.rfind('.')]) for i in list_file]
+                     file for file in os.listdir(args.pathdef) if file.endswith('.csv')]
+        list_redshift = [float(i[i.rfind('_')+1:i.rfind('.')])
+                         for i in list_file]
         for idx, val in enumerate(list_file):
             dist_lum = cosm_calc(list_redshift[idx])
             if args.condor:
                 job_dir = args.pathdir + '/' + 'job_' + str(idx)
                 os.mkdir(job_dir)
-                write_bash_script_condor(val, list_redshift[idx], dist_lum, job_dir, os.getenv('PWD'), args)
+                write_bash_script_condor(
+                    val, list_redshift[idx], dist_lum, job_dir, os.getenv('PWD'), args)
                 write_file_sub(job_dir)
                 subprocess.run(
                     f"condor_submit -spool {job_dir}/sub", shell=True, check=True)
@@ -173,7 +175,7 @@ def main(args=None):
                 write_bash_script(val, list_redshift[idx], dist_lum, args)
                 subprocess.run("bash script.sh", shell=True, check=True)
 
-    else: 
+    else:
 
         if not args.pathdata:
 

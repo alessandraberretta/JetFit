@@ -4,6 +4,7 @@ import emcee as em
 import matplotlib.pyplot as plt
 import pandas as pd
 import sys
+import pymc3
 
 from argparse import ArgumentParser
 
@@ -133,12 +134,12 @@ def main(args=None):
         Info['FluxType'] = 'Integrated'
 
     SamplerType = "ParallelTempered"
-    NTemps = 60
-    NWalkers = 380
-    Threads = 2
+    NTemps = 10
+    NWalkers = 100
+    Threads = 1
 
-    BurnLength = 10
-    RunLength = 10
+    BurnLength = 100
+    RunLength = 100
 
     # Fitter
     # Initialize Fitter
@@ -214,6 +215,7 @@ def main(args=None):
 
         FluxesModel = np.asarray(
             Fitter.FluxGenerator.GetIntegratedFlux(NewTimes, Freqs, BestP))
+        print(FluxesModel)
         plt.loglog(NewTimes, FluxesModel, '--', color='black', linewidth=1.5)
         ax = plt.gca()
         ax.errorbar(Times, Fluxes, yerr=FluxErrs, fmt='.', color='black')
@@ -244,6 +246,7 @@ def main(args=None):
 
     # plot contour with ChainConsume
     Chain = Result['Chain'].reshape((-1, FitDim))
+    test = pymc3.diagnostics.gelman_rubin(Chain)
     fit_pars = np.median(Chain, axis=0)
     fig = corner.corner(Chain, labels=Label, label_size=20, bins=40, plot_datapoints=False,
                         quantiles=[0.16, 0.5, 0.84], show_titles=True, color='darkblue',
@@ -273,7 +276,7 @@ def main(args=None):
     df = pd.DataFrame(
         data, columns=['Parameters', 'Values', 'err_neg', 'err_pos'])
     df2 = pd.DataFrame([['Redshift', redshift], ['Luminosity distance', dist_lum_cm], ['ChiSquare', ChiSquare], ['Dof', DoF], [
-        'ChiSquareRed', ChiSquareRed]], columns=['Parameters', 'Values'])
+        'ChiSquareRed', ChiSquareRed], ['G-R test', test]], columns=['Parameters', 'Values'])
     df3 = df.append(df2, sort=False)
     df3.to_csv(args.pathout + "/summary_" +
                GRB[GRB.rfind('/')+1:GRB.rfind('.')] + ".csv",  sep='\t')
