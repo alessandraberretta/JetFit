@@ -6,19 +6,13 @@ from scipy.stats import linregress
 from decimal import Decimal
 import os
 import streamlit as st
-import base64
+import altair as alt
 
 
 st.set_page_config(layout="wide")
 st.write("""
 # Rebin analysis on a sample of *Swift*-XRT GRBs
 """)
-
-st.sidebar.write("Analysis flags")
-single = st.sidebar.checkbox("single", True)
-# flare = st.sidebar.checkbox("flare", True)
-partial_rebin = st.sidebar.checkbox("partial_rebin", True)
-original_lc = st.sidebar.checkbox("original_lc", True)
 
 # flag for removed flare
 flare = True
@@ -50,6 +44,16 @@ for file in GRB_list:
 # path_single_GRB = '/Users/alessandraberretta/JetFit/2015/2015def/GRB_150821A_0.755_def.csv'
 GRB = path_single_GRB[path_single_GRB.rfind(
     '/')+1:path_single_GRB.rfind('_def')]
+
+
+st.sidebar.write("Analysis flags")
+single = st.sidebar.checkbox("single", True)
+partial_rebin = st.sidebar.checkbox("partial_rebin", True)
+original_lc = st.sidebar.checkbox("original_lc", True)
+y_min = st.sidebar.slider('y_min scatter plot', min_value=float(-250),
+                          max_value=float(0), value=float(-100))
+y_max = st.sidebar.slider('y_max scatter plot', min_value=float(0),
+                          max_value=float(250), value=float(100))
 
 
 @st.cache
@@ -109,12 +113,12 @@ times_mean = []
 fluxes_mean = []
 fluxerrs_mean = []
 
-t_0 = st.sidebar.slider('Initial cut time', min_value=float("{:e}".format(0)),
-                        max_value=float("{:e}".format(50000)), value=float("{:e}".format(5000)))
+t_0 = st.sidebar.slider('Initial cut time', min_value=float(0),
+                        max_value=float(50000), value=float(5000))
 # t_0 = 5e3
 
-sigma_fit_slopes = st.sidebar.slider('Sigma of slopes distribution', min_value=float("{:e}".format(1)),
-                                     max_value=float("{:e}".format(50)), value=float("{:e}".format(6.6)))
+sigma_fit_slopes = st.sidebar.slider('Sigma of slopes distribution', min_value=float(1),
+                                     max_value=float(50), value=float(6.6))
 # sigma_fit_slopes = 10
 
 t_rebin = st.sidebar.slider('Rebin time', min_value=float(0),
@@ -212,10 +216,10 @@ if single:
     slopes_red_2 = [float(i) for i in df['Slopes'].values]
 
     scatter = scatter_flare(Times_mean_rebin, slopes, times_mean_red,
-                            slopes_red_2, 'black', 'red', -200, 200)
+                            slopes_red_2, 'black', 'red', y_min, y_max)
 
-    st.pyplot(scatter)
     st.pyplot(lc_original)
+    st.pyplot(scatter)
 
     Times_red = np.delete(times_mean, dropped_idx)
     Fluxes_red = np.delete(fluxes_mean, dropped_idx)
