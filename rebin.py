@@ -9,20 +9,11 @@ import streamlit as st
 import altair as alt
 
 
+# config streamlit
 st.set_page_config(layout="wide")
 st.write("""
 # Rebin analysis on a sample of *Swift*-XRT GRBs
 """)
-
-# flag for removed flare
-flare = True
-
-# flag for single GRB
-# single = True
-# flag for removed flare
-# flare = False
-# rebin only in the final points of the lc
-# partial_rebin = True
 
 
 # read data
@@ -40,11 +31,14 @@ choosen_GRB = st.sidebar.selectbox(
 for file in GRB_list:
     if choosen_GRB[choosen_GRB.rfind(' ')+1:] in file:
         path_single_GRB = file
-# path_single_GRB = st.sidebar.text_input('GRB file', '/Users/alessandraberretta/JetFit/2013/2013def/GRB_130420A_1.297_def.csv')
-# path_single_GRB = '/Users/alessandraberretta/JetFit/2015/2015def/GRB_150821A_0.755_def.csv'
 GRB = path_single_GRB[path_single_GRB.rfind(
     '/')+1:path_single_GRB.rfind('_def')]
+# path_single_GRB = st.sidebar.text_input('GRB file', '/Users/alessandraberretta/JetFit/2013/2013def/GRB_130420A_1.297_def.csv')
+# path_single_GRB = '/Users/alessandraberretta/JetFit/2015/2015def/GRB_150821A_0.755_def.csv'
 
+
+# analysis flags
+flare = True
 
 st.sidebar.write("Analysis flags")
 single = st.sidebar.checkbox("single", True)
@@ -56,11 +50,13 @@ y_max = st.sidebar.slider('y_max scatter plot', min_value=float(0),
                           max_value=float(250), value=float(100))
 
 
+# function that reads csv file
 @st.cache
 def read_data_file(file):
     return pd.read_csv(file)
 
 
+# function for scatter plot
 def scatter_flare(x_1, y_1, x_2, y_2, color_1, color_2, ymin, ymax):
     fig, ax = plt.subplots(clear=True)
     # plt.clf()
@@ -78,6 +74,7 @@ def scatter_flare(x_1, y_1, x_2, y_2, color_1, color_2, ymin, ymax):
     return fig
 
 
+# function for lighcurve plot
 def lc_plot(times, fluxes, fluxes_err, color, original_lc=True, flare=True):
     fig, ax = plt.subplots(clear=True)
     # plt.clf()
@@ -101,36 +98,40 @@ def lc_plot(times, fluxes, fluxes_err, color, original_lc=True, flare=True):
     return fig
 
 
+# function for weighted mean computation
 def weighted_error_mean(var, err_var):
     return np.average(var, axis=0, weights=[1/i for i in err_var])
 
 
+# define temporary/empty arrays for the following analysis
 temp_times = []
 temp_fluxes = []
 temp_fluxerrs = []
-
 times_mean = []
 fluxes_mean = []
 fluxerrs_mean = []
 
+
+# some useful sliders
 t_0 = st.sidebar.slider('Initial cut time', min_value=float(0),
                         max_value=float(50000), value=float(5000))
 # t_0 = 5e3
-
 sigma_fit_slopes = st.sidebar.slider('Sigma of slopes distribution', min_value=float(1),
                                      max_value=float(50), value=float(6.6))
 # sigma_fit_slopes = 10
-
 t_rebin = st.sidebar.slider('Rebin time', min_value=float(0),
                             max_value=float(2000), value=float(500))
 # t_rebin = 300
 
+
+# if single flag is set True, the analysis is performed on a single GRB at a time
 if single:
 
     DF = read_data_file(path_single_GRB)
     Times, Fluxes, FluxErrs = DF['Times'].values, DF['Fluxes'].values, DF['FluxErrs'].values
     Times_0 = DF['Times'][0]
 
+    # rebin analysis
     for idx, val in enumerate(Times):
         if val > t_0:
             if len(temp_times) == 0:
@@ -138,7 +139,7 @@ if single:
                 temp_fluxes.append(Fluxes[idx])
                 temp_fluxerrs.append(FluxErrs[idx])
             else:
-                if (val - temp_times[0]) < t_rebin:
+                if abs(val - temp_times[0]) < t_rebin:
                     temp_times.append(val)
                     temp_fluxes.append(Fluxes[idx])
                     temp_fluxerrs.append(FluxErrs[idx])
@@ -161,9 +162,9 @@ if single:
                 fluxes_mean.append(Fluxes[idx])
                 fluxerrs_mean.append(FluxErrs[idx])
 
+    # get the original and rebinned lightcurves
     lc_original = lc_plot(Times, Fluxes, FluxErrs, 'black',
                           original_lc=True, flare=False)
-
     lc_rebin = lc_plot(times_mean, fluxes_mean,
                        fluxerrs_mean, 'red', original_lc=False)
 
@@ -175,9 +176,8 @@ if single:
     first_point_f = []
     last_point_f = []
 
+    # compute the slopes between couples of points
     for idx in range(len(times_mean)-1):
-        # slope, intercept, _, _, _ = linregress([np.log10(Times[idx]), np.log10(
-        # Times[idx+1])], [np.log10(Fluxes[idx]), np.log10(Fluxes[idx+1])])
         slope, intercept, _, _, _ = linregress([np.log10(times_mean[idx]), np.log10(
             times_mean[idx+1])], [np.log10(fluxes_mean[idx]), np.log10(fluxes_mean[idx+1])])
         slopes.append(slope)
@@ -188,6 +188,7 @@ if single:
         first_point_f.append(fluxes_mean[idx])
         last_point_f.append(fluxes_mean[idx+1])
 
+    # create a dataframe with all the information
     d = {'Slopes': slopes, 'Intercepts': intercepts, 'Times_mean': Times_mean_rebin, 'First_time': first_point_t,
          'Last_time': last_point_t, 'First_flux': first_point_f, 'Last_flux': last_point_f}
     df = pd.DataFrame(data=d, columns=[
@@ -201,6 +202,7 @@ if single:
     df["Last_flux"] = ['%.6E' % Decimal(z) for z in df['Last_flux']]
     df.to_csv("info_" + GRB + ".csv",  sep='\t')
 
+    # using the sigma of the slopes distribution to filter the data
     slopes_red = []
     dropped_idx = []
     for idx, val in enumerate(slopes):
@@ -215,19 +217,24 @@ if single:
     times_mean_red = [float(i) for i in df['Times_mean'].values]
     slopes_red_2 = [float(i) for i in df['Slopes'].values]
 
+    # scatter plots with rebinned and cut data
     scatter = scatter_flare(Times_mean_rebin, slopes, times_mean_red,
                             slopes_red_2, 'black', 'red', y_min, y_max)
 
+    # plot with streamlit
     st.pyplot(lc_original)
     st.pyplot(scatter)
 
+    # delete from the original arrays the data points that not survived the sigma cut
     Times_red = np.delete(times_mean, dropped_idx)
     Fluxes_red = np.delete(fluxes_mean, dropped_idx)
     FluxErrs_red = np.delete(fluxerrs_mean, dropped_idx)
 
+    # lightcurve with no flare
     lc_nf = lc_plot(Times_red, Fluxes_red, FluxErrs_red,
                     'green', original_lc=False, flare=False)
 
+    # plot the two lightcurves with streamlit
     col1, col2 = st.beta_columns(2)
     if original_lc:
         with col1:
