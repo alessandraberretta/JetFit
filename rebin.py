@@ -1,4 +1,5 @@
 import sys
+from tokenize import group
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -6,6 +7,7 @@ from scipy.stats import linregress
 from decimal import Decimal
 import os
 import streamlit as st
+import statistics
 
 
 # function that reads csv file
@@ -30,7 +32,7 @@ def scatter_flare(x_1, y_1, x_2, y_2, color_1, color_2, ymin, ymax, GRB):
 
 
 # function for lighcurve plot
-def lc_plot(GRB, times, fluxes, fluxes_err, color, original=True, rebin=True, flare=True):
+def lc_plot(GRB, times, fluxes, fluxes_err, color, original=True, rebin=True, flare=True, group=True):
     fig, ax = plt.subplots(clear=True)
     # plt.clf()
     ax.errorbar(times, fluxes, yerr=fluxes_err, fmt='.', color=color)
@@ -47,6 +49,8 @@ def lc_plot(GRB, times, fluxes, fluxes_err, color, original=True, rebin=True, fl
     if flare:
         plt.title('Removed flares lightcurve')
         plt.savefig("lc_" + GRB + "_nf.pdf")
+    if group:
+        plt.title('Flare removal after slopes grouping')
     return fig
 
 
@@ -100,7 +104,7 @@ def rebin_data(GRB, DF, t_0, t_rebin, partial_rebin):
 
     # get the rebinned lightcurve
     lc_rebin = lc_plot(GRB, times_mean, fluxes_mean,
-                       fluxerrs_mean, 'red', original=False, rebin=True, flare=False)
+                       fluxerrs_mean, 'red', original=False, rebin=True, flare=False, group=False)
 
     return lc_rebin, times_mean, fluxes_mean, fluxerrs_mean
 
@@ -165,6 +169,118 @@ def remove_flare(times, fluxes, fluxerrs, GRB, sigma_fit_slopes):
     return times_rebin, slopes, times_red, slopes_red_2, Times_red, Fluxes_red, FluxErrs_red
 
 
+# function to compute the standard deviation for bunch of points
+def stdev_groups(GRB, times_mean, fluxes_mean, fluxerrs_mean, group_points):
+
+    if 0 < len(times_mean) % group_points < 2:
+        st.error("change the number of points to group with")
+        sys.exit()
+
+    slopes = []
+    intercepts = []
+    times_rebin = []
+    first_point_t = []
+    last_point_t = []
+    first_point_f = []
+    last_point_f = []
+    first_flux_errs = []
+    last_flux_errs = []
+
+    for idx in range(len(times_mean)-1):
+        slope, intercept, _, _, _ = linregress([np.log10(times_mean[idx]), np.log10(
+            times_mean[idx+1])], [np.log10(fluxes_mean[idx]), np.log10(fluxes_mean[idx+1])])
+        slopes.append(slope)
+        intercepts.append(intercept)
+        times_rebin.append(times_mean[idx])
+        first_point_t.append(times_mean[idx])
+        last_point_t.append(times_mean[idx+1])
+        first_point_f.append(fluxes_mean[idx])
+        last_point_f.append(fluxes_mean[idx+1])
+        first_flux_errs.append(fluxerrs_mean[idx])
+        last_flux_errs.append(fluxerrs_mean[idx+1])
+
+    grouped_slopes = [slopes[n:n+group_points]
+                      for n in range(0, len(slopes), group_points)]
+    grouped_times_rebin = [times_rebin[n:n+group_points]
+                           for n in range(0, len(times_rebin), group_points)]
+    grouped_first_point_t = [first_point_t[n:n+group_points]
+                             for n in range(0, len(first_point_t), group_points)]
+    grouped_last_point_t = [last_point_t[n:n+group_points]
+                            for n in range(0, len(last_point_t), group_points)]
+    grouped_first_point_f = [first_point_f[n:n+group_points]
+                             for n in range(0, len(first_point_f), group_points)]
+    grouped_last_point_f = [last_point_f[n:n+group_points]
+                            for n in range(0, len(last_point_f), group_points)]
+    grouped_first_fluxerrs = [first_flux_errs[n:n+group_points]
+                              for n in range(0, len(first_flux_errs), group_points)]
+    grouped_last_fluxerrs = [last_flux_errs[n:n+group_points]
+                             for n in range(0, len(last_flux_errs), group_points)]
+    stdev_grouped = []
+    for _list in grouped_slopes:
+        stdev_grouped.append(statistics.stdev(_list))
+
+    # max_std = max(stdev_grouped)
+
+    mean_stdev_grouped = sum(stdev_grouped) / len(stdev_grouped)
+    print(mean_stdev_grouped)
+    print(mean_stdev_grouped + np.sqrt(mean_stdev_grouped))
+
+    dropped_idx = []
+
+    for elm in stdev_grouped:
+        if elm > mean_stdev_grouped + np.sqrt(mean_stdev_grouped):
+            dropped_idx.append(stdev_grouped.index(elm))
+            # print(elm)
+            # grouped_slopes.pop(stdev_grouped.index(elm))
+            # print(stdev_grouped.index(elm))
+            # print(stdev_grouped)
+            # grouped_times_rebin.pop(stdev_grouped.index(elm))
+            # grouped_first_point_t.pop(stdev_grouped.index(elm))
+            # grouped_last_point_t.pop(stdev_grouped.index(elm))
+            # grouped_first_point_f.pop(stdev_grouped.index(elm))
+            # grouped_last_point_f.pop(stdev_grouped.index(elm))
+            # grouped_first_fluxerrs.pop(stdev_grouped.index(elm))
+            # grouped_last_fluxerrs.pop(stdev_grouped.index(elm))
+
+    print(dropped_idx)
+    grouped_slopes = np.delete(grouped_slopes, dropped_idx)
+    grouped_times_rebin = np.delete(grouped_times_rebin, dropped_idx)
+    grouped_first_point_t = np.delete(grouped_first_point_t, dropped_idx)
+    grouped_last_point_t = np.delete(grouped_last_point_t, dropped_idx)
+    grouped_first_point_f = np.delete(grouped_first_point_f, dropped_idx)
+    grouped_last_point_f = np.delete(grouped_last_point_f, dropped_idx)
+    grouped_first_fluxerrs = np.delete(grouped_first_fluxerrs, dropped_idx)
+    grouped_last_fluxerrs = np.delete(grouped_last_fluxerrs, dropped_idx)
+
+    slopes_rem = []
+    times_rebin_rem = []
+    first_point_t_rem = []
+    last_point_t_rem = []
+    first_point_f_rem = []
+    first_fluxerrs_rem = []
+    last_fluxerrs_rem = []
+    for idx, _ in enumerate(grouped_slopes):
+        slopes_rem += grouped_slopes[idx]
+        times_rebin_rem += grouped_times_rebin[idx]
+        first_point_t_rem += grouped_first_point_t[idx]
+        last_point_t_rem += grouped_last_point_t[idx]
+        first_point_f_rem += grouped_first_point_f[idx]
+        first_fluxerrs_rem += grouped_first_fluxerrs[idx]
+        last_fluxerrs_rem += grouped_last_fluxerrs[idx]
+
+    lc_grouped = lc_plot(GRB, times_rebin_rem, first_point_f_rem, first_fluxerrs_rem,
+                         'blue', original=False, rebin=False, flare=False, group=True)
+
+    return stdev_grouped, mean_stdev_grouped, lc_grouped
+
+
+def dist_par(par):
+    fig, ax = plt.subplots(clear=True)
+    plt.hist(par, bins=5, histtype='step', color='black')
+    ax.set_xlabel('std distribution')
+    return fig
+
+
 def main():
 
     # config streamlit
@@ -193,6 +309,7 @@ def main():
     st.sidebar.write("Analysis buttons")
     flare = st.sidebar.checkbox("a flare is present", True)
     partial_rebin = st.sidebar.checkbox("partial_rebin", True)
+    group = st.sidebar.checkbox("group the slopes", True)
     y_min = st.sidebar.slider('y_min scatter plot', min_value=float(-500),
                               max_value=float(0), value=float(-100))
     y_max = st.sidebar.slider('y_max scatter plot', min_value=float(0),
@@ -203,13 +320,22 @@ def main():
                                   max_value=float(50000), value=float(5000))
     t_rebin = st.sidebar.number_input('Rebin time', min_value=float(
         0), max_value=float(10000), value=float(500))
+    group_points = st.sidebar.number_input('Number of points for each group', min_value=int(
+        2), max_value=int(1000), value=int(3))
 
     # read data file
     DF = read_data_file(path_single_GRB)
 
     lc_original = lc_plot(GRB, DF['Times'].values, DF['Fluxes'].values, DF['FluxErrs'].values, 'black',
-                          original=True, rebin=False, flare=False)
+                          original=True, rebin=False, flare=False, group=False)
     st.pyplot(lc_original)
+
+    # stdev = stdev_groups(DF['Times'].values, group_points)
+    # print(stdev)
+
+    # std_dist = dist_par(stdev)
+
+    # st.pyplot(std_dist)
 
     if t_rebin:
         lc_rebin, times_mean, fluxes_mean, fluxerrs_mean = rebin_data(
@@ -220,7 +346,7 @@ def main():
             scatter = scatter_flare(times_rebin, slopes, times_red,
                                     slopes_red_2, 'black', 'red', y_min, y_max, GRB)
             lc_nf = lc_plot(GRB, Times_red, Fluxes_red, FluxErrs_red,
-                            'green', original=False, rebin=False, flare=True)
+                            'green', original=False, rebin=False, flare=True, group=False)
             st.pyplot(scatter)
             col1, col2 = st.beta_columns(2)
             with col1:
@@ -228,14 +354,22 @@ def main():
             with col2:
                 st.pyplot(lc_nf)
         else:
-            Times_red = times_mean
-            Fluxes_red = fluxes_mean
-            FluxErrs_red = fluxerrs_mean
-            col1, col2 = st.beta_columns(2)
-            with col1:
-                st.pyplot(lc_original)
-            with col2:
-                st.pyplot(lc_rebin)
+            if group:
+                stdev, mean_stdev_grouped, lc_group = stdev_groups(
+                    GRB, times_mean, fluxes_mean, fluxerrs_mean, group_points)
+                Times_red = times_mean
+                Fluxes_red = fluxes_mean
+                FluxErrs_red = fluxerrs_mean
+                col1, col2 = st.beta_columns(2)
+                with col1:
+                    st.pyplot(lc_original)
+                with col2:
+                    st.pyplot(lc_rebin)
+
+                st.text("List of std relative to each group")
+                st.dataframe(data=stdev, width=None, height=None)
+
+                st.pyplot(lc_group)
     else:
         if flare:
             times_rebin, slopes, times_red, slopes_red_2, Times_red, Fluxes_red, FluxErrs_red = remove_flare(DF['Times'].values, DF['Fluxes'].values,
@@ -243,7 +377,7 @@ def main():
             scatter = scatter_flare(times_rebin, slopes, times_red,
                                     slopes_red_2, 'black', 'red', y_min, y_max, GRB)
             lc_nf = lc_plot(GRB, Times_red, Fluxes_red, FluxErrs_red,
-                            'green', original=False, rebin=False, flare=True)
+                            'green', original=False, rebin=False, flare=True, group=False)
             st.pyplot(scatter)
             col1, col2 = st.beta_columns(2)
             with col1:
