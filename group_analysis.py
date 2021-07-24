@@ -3,13 +3,13 @@ import numpy as np
 from scipy.stats import linregress
 import statistics
 import matplotlib.pyplot as plt
+import pandas as pd
+from decimal import Decimal
 from plot_analysis import lc_plot
 
 
 # function to compute the standard deviation for bunch of points
-def stdev_groups(GRB, times_mean, fluxes_mean, fluxerrs_mean, group_points):
-
-    print(len(times_mean))
+def stdev_groups(GRB, t_0, t_rebin, times_mean, fluxes_mean, fluxerrs_mean, group_points, sigma):
     '''
     if len(times_mean) % group_points != 0:
         st.error("change the number of points to group with")
@@ -65,14 +65,11 @@ def stdev_groups(GRB, times_mean, fluxes_mean, fluxerrs_mean, group_points):
     '''
     good_slopes = np.empty(0)
 
-    # print(grouped_times_rebin)
-
     for idx, elm in enumerate(grouped_slopes):
         if idx != 1:
             good_slopes = np.append(good_slopes, np.asarray(elm))
 
     std = np.std(good_slopes)
-    # print(2*std)
 
     slopes_arr = np.array(slopes)
     mask_slopes = np.abs(slopes_arr) < (2*std)
@@ -87,12 +84,9 @@ def stdev_groups(GRB, times_mean, fluxes_mean, fluxerrs_mean, group_points):
 
     t_rebin_arr = np.asarray(grouped_times_rebin)
     t_rebin_flatten = t_rebin_arr.flatten()
-    print(t_rebin_flatten)
 
     for idx, elm in enumerate(good_slopes_real):
-        print('ciao')
         good_times_rebin.append(t_rebin_flatten[idx])
-    # print(good_times_rebin)
     '''
     for elm in stdev_grouped:
         if elm > mean_stdev_grouped + np.std(stdev_grouped):
@@ -109,19 +103,16 @@ def stdev_groups(GRB, times_mean, fluxes_mean, fluxerrs_mean, group_points):
     grouped_first_fluxerrs = np.hstack(grouped_first_fluxerrs)
     grouped_last_fluxerrs = np.hstack(grouped_last_fluxerrs)
     std_grouped_slopes_removed = np.std(grouped_slopes)
-    print(std_grouped_slopes_removed)
 
-    # slopes_red_bystd = []
-    # dropped_idx_bystd = []
+    slopes_red_bystd = []
+    dropped_idx_bystd = []
     Times_red_bystd = []
     Fluxes_red_bystd = []
     FluxErrs_red_bystd = []
-    print(times_mean)
-    print(grouped_first_point_t)
-    print(grouped_last_point_t)
-    print(slopes)
+    # sigma = 3
+
     for idx, elm in enumerate(slopes):
-        if abs(elm) > std_grouped_slopes_removed:
+        if abs(elm) < sigma*std_grouped_slopes_removed:
             if elm > 0:
                 Times_red_bystd.append(grouped_first_point_t[idx])
                 Fluxes_red_bystd.append(grouped_first_point_f[idx])
@@ -130,8 +121,40 @@ def stdev_groups(GRB, times_mean, fluxes_mean, fluxerrs_mean, group_points):
                 Times_red_bystd.append(grouped_last_point_t[idx])
                 Fluxes_red_bystd.append(grouped_last_point_f[idx])
                 FluxErrs_red_bystd.append(grouped_last_fluxerrs[idx])
-            # slopes_red_bystd.append(elm)
-            # dropped_idx_bystd.append(idx)
+            '''
+            slopes_red_bystd.append(elm)
+            dropped_idx_bystd.append(idx)
+            '''
+
+    Fluxes_red_bystd_2 = []
+    Times_red_bystd_2 = []
+    FluxErrs_red_bystd_2 = []
+
+    for i in Fluxes_red_bystd:
+        if i not in Fluxes_red_bystd_2:
+            Fluxes_red_bystd_2.append(i)
+
+    for i in Times_red_bystd:
+        if i not in Times_red_bystd_2:
+            Times_red_bystd_2.append(i)
+
+    for i in FluxErrs_red_bystd:
+        if i not in FluxErrs_red_bystd_2:
+            FluxErrs_red_bystd_2.append(i)
+
+    d3 = {'Times': Times_red_bystd_2, 'Fluxes': Fluxes_red_bystd_2,
+          'FluxErrs': FluxErrs_red_bystd_2}
+    df3 = pd.DataFrame(data=d3, columns=['Times', 'Fluxes', 'FluxErrs'])
+    df3["Times"] = ['%.6E' % Decimal(x) for x in df3['Times']]
+    df3["Fluxes"] = ['%.6E' % Decimal(y) for y in df3['Fluxes']]
+    df3["FluxErrs"] = ['%.6E' % Decimal(z) for z in df3['FluxErrs']]
+    df3.to_csv(GRB + "_rebin_nf.csv",  sep='\t')
+
+    Pars = ['GRB', 't_0', 't_rebin', 'group_points', 'sigma']
+    Vals = [GRB, t_0, t_rebin, group_points, sigma]
+    d4 = {'Parameters': Pars, 'Values': Vals}
+    df4 = pd.DataFrame(data=d4, columns=['Parameters', 'Values'])
+    df4.to_csv("pars_analysis_" + GRB + ".csv",  sep='\t')
 
     # Times_red_bystd = np.delete(grouped_first_point_t, dropped_idx_bystd)
     # Fluxes_red_bystd = np.delete(grouped_first_point_f, dropped_idx_bystd)
@@ -155,7 +178,7 @@ def stdev_groups(GRB, times_mean, fluxes_mean, fluxerrs_mean, group_points):
         last_fluxerrs_rem += grouped_last_fluxerrs[idx]
     '''
 
-    lc_grouped = lc_plot(GRB, Times_red_bystd, Fluxes_red_bystd, FluxErrs_red_bystd,
+    lc_grouped = lc_plot(GRB, Times_red_bystd_2, Fluxes_red_bystd_2, FluxErrs_red_bystd_2,
                          'blue', original=False, rebin=False, flare=False, group=True)
 
     return stdev_grouped, mean_stdev_grouped, std_grouped_slopes_removed, lc_grouped

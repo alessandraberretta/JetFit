@@ -29,15 +29,15 @@ def main():
     """)
 
     # read data
-    path_GRB = '/Users/alessandraberretta/JetFit/2013/2013def/'
+    path_GRB = '/Users/alessandraberretta/JetFit/2012/2012def/'
     GRB_list = [path_GRB +
                 file for file in os.listdir(path_GRB) if file.startswith('GRB_')]
+    GRB_names = []
+    for elm in GRB_list:
+        GRB_names.append('GRB' + ' ' + elm.split('_')[1])
+    print(len(GRB_names))
 
-    choosen_GRB = st.sidebar.selectbox(
-        'GRB file', ('GRB 130408A', 'GRB 130418A', 'GRB 130420A', 'GRB 130427B', 'GRB 130505A', 'GRB 130511A',
-                     'GRB 130603B', 'GRB 130606A', 'GRB 130610A', 'GRB 130612A', 'GRB 130701A', 'GRB 130702A',
-                     'GRB 130831A', 'GRB 130907A', 'GRB 130925A', 'GRB 131004A', 'GRB 131030A', 'GRB 131103A',
-                     'GRB 131105A', 'GRB 131108A', 'GRB 131117A', 'GRB 131231A'))
+    choosen_GRB = st.sidebar.selectbox('GRB file', GRB_names)
     for file in GRB_list:
         if choosen_GRB[choosen_GRB.rfind(' ')+1:] in file:
             path_single_GRB = file
@@ -61,6 +61,8 @@ def main():
         0), max_value=float(10000), value=float(500))
     group_points = st.sidebar.number_input('Number of points for each group', min_value=int(
         2), max_value=int(1000), value=int(3))
+    sigma = st.sidebar.number_input('Number of sigmas', min_value=int(
+        1), max_value=int(20), value=int(2))
 
     # read data file
     DF = read_data_file(path_single_GRB)
@@ -88,20 +90,20 @@ def main():
         else:
             if group:
                 stdev, mean_stdev_grouped, std_grouped_slopes_removed, lc_group = stdev_groups(
-                    GRB, times_mean, fluxes_mean, fluxerrs_mean, group_points)
+                    GRB, t_0, t_rebin, times_mean, fluxes_mean, fluxerrs_mean, group_points, sigma)
                 Times_red = times_mean
                 Fluxes_red = fluxes_mean
                 FluxErrs_red = fluxerrs_mean
                 col1, col2 = st.beta_columns(2)
                 with col1:
-                    st.pyplot(lc_original)
-                with col2:
                     st.pyplot(lc_rebin)
+                with col2:
+                    st.pyplot(lc_group)
 
                 st.text("List of std relative to each group")
                 st.dataframe(data=stdev, width=None, height=None)
 
-                st.pyplot(lc_group)
+                # st.pyplot(lc_group)
     else:
         if flare:
             times_rebin, slopes, times_red, slopes_red_2, Times_red, Fluxes_red, FluxErrs_red = remove_flare(DF['Times'].values, DF['Fluxes'].values,
@@ -126,7 +128,7 @@ def main():
     df2["Times"] = ['%.6E' % Decimal(x) for x in df2['Times']]
     df2["Fluxes"] = ['%.6E' % Decimal(y) for y in df2['Fluxes']]
     df2["FluxErrs"] = ['%.6E' % Decimal(z) for z in df2['FluxErrs']]
-    df2.to_csv(GRB + "_nf" + ".csv",  sep='\t')
+    # df2.to_csv(GRB + "_nf" + ".csv",  sep='\t')
 
     path_lc = '/Users/alessandraberretta/JetFit/2013_rebin_removeflare_results/'
     list_fitted_GRB = [path_lc +

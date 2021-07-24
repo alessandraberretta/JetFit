@@ -20,7 +20,6 @@ def rebin_data(GRB, DF, t_0, t_rebin, partial_rebin):
 
     Times, Fluxes, FluxErrs = DF['Times'].values, DF['Fluxes'].values, DF['FluxErrs'].values
     Times_0 = DF['Times'][0]
-
     for idx, val in enumerate(Times):
         if val > t_0:
             if len(temp_times) == 0:
@@ -50,6 +49,11 @@ def rebin_data(GRB, DF, t_0, t_rebin, partial_rebin):
                 times_mean.append(val)
                 fluxes_mean.append(Fluxes[idx])
                 fluxerrs_mean.append(FluxErrs[idx])
+
+    if t_rebin == 1:
+        times_mean.append(Times[-1])
+        fluxes_mean.append(Fluxes[-1])
+        fluxerrs_mean.append(FluxErrs[-1])
 
     # get the rebinned lightcurve
     lc_rebin = lc_plot(GRB, times_mean, fluxes_mean,

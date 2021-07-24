@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 # function for scatter plot
@@ -27,13 +28,14 @@ def lc_plot(GRB, times, fluxes, fluxes_err, color, original=True, rebin=True, fl
     ax.set_ylabel('flux (erg/cm^2/s)')
     if original:
         plt.title('Original lightcurve')
-        plt.savefig("lc_" + GRB + ".pdf")
+        # plt.savefig("lc_" + GRB + ".pdf")
     if rebin:
         plt.title('Re-binned lightcurve')
-        plt.savefig("lc_" + GRB + "_rebin.pdf")
+        # plt.savefig("lc_" + GRB + "_rebin.pdf")
     if flare:
         plt.title('Removed flares lightcurve')
-        plt.savefig("lc_" + GRB + "_nf.pdf")
+        # plt.savefig("lc_" + GRB + "_nf.pdf")
     if group:
+        # plt.xlim(1e2, 2*np.max(times))
         plt.title('Flare removal after slopes grouping')
     return fig
