@@ -133,15 +133,15 @@ def syncEmissivityKernPL(gamma, nu, p, B):
     k1 = ne*singleElecSynchroPower(nu, gamma, B)
     return k1
 
-def F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max):
-
-    gamma_list = getLogGammaArray(np.log10(gamma_min), np.log10(gamma_max), 5)
+def F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, d, dl):
+    gamma_list = getLogGammaArray(np.log10(gamma_min), np.log10(gamma_max), 300)
     nuL = nu_L(B)
     coeff_P_syn = (2.*np.pi*np.sqrt(3.)*e*e*nuL)/c
     k0 = (p+2)/(8*np.pi*me)
     flux_syn = []
     freq_plot = []
     assorb = []
+    V_R = (4/3)*np.pi*np.power(R, 3)
     for elm_nu in nu_list_SYN: 
         func1 = []
         func2 = []
@@ -156,7 +156,7 @@ def F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max):
         integral_simpson = integrate.simps(func1)
         al = integrate.simps(func2)
         if integral_simpson > 1e-50:
-            I = coeff_P_syn*integral_simpson*n0  # (r[0]/alpha)*(1.-exp(-tau))
+            I = coeff_P_syn*integral_simpson*n0*4*np.pi*V_R # (r[0]/alpha)*(1.-exp(-tau))
             # alpha_PL = ((3*sigmaT)/(64*np.pi*me))*(np.power(nuL, (p-2)/2))*(np.power(elm_nu, -(p+4)/2))
             alpha = coeff_P_syn*al*k0*n0/pow(elm_nu, 2.)
             tau = alpha*R
@@ -169,11 +169,13 @@ def F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max):
                 flux_syn.append(elm_nu*I*R)
                 assorb.append(elm_nu*I*R)
                 freq_plot.append(elm_nu)
-    fig = plt.plot(np.log10(freq_plot), np.log10(flux_syn), c='blue')
+    # freq_plot_syn = np.log10(freq_plot)
+    # flux_plot_syn = np.log10(flux_syn)
+    # plt.plot(np.log10(freq_plot), np.log10(flux_syn), c='blue')
     # plt.ylim(-10, 10)
     # plt.xlim(7., 25.)
     # plt.show()
-    return fig
+    return np.log10(freq_plot), np.log10(flux_syn)
 
 def GAMMA_fc(gamma):
     f1 = lambda nui: (4*gamma*h*nui)/(mec2)
@@ -188,14 +190,16 @@ def A1(nu, gamma):
     return a1
 
 def P_ssc(B, nu, p, gamma_min, gamma_max, gamma):
+
     # asso, tau, js = F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max)
     # syn_part = (1-(3/4)*tau)*asso
+
     A = 8*np.pi*np.power(re,2)*c*h
     nu_s_min = 1.2*1e6*np.power(gamma_min, 2)*B
     nu_s_max = 1.2*1e6*np.power(gamma_max, 2)*B
     nus = nu_s(gamma, B)
-    nui_min = max(nu_s_min,(nus)/(4*np.power(gamma, 2)*(1-(h*nu)/(gamma*mec2))))
-    nui_max = max(nu_s_max,(nus)/(1-(h*nu)/(gamma*mec2)))
+    nui_min = max(nu_s_min, (nus)/(4*np.power(gamma, 2)*(1-(h*nu)/(gamma*mec2))))
+    nui_max = max(nu_s_max, (nus)/(1-(h*nu)/(gamma*mec2)))
     
     '''
     f2 = lambda nui: syncEmissivityKernPL(gamma, nui, p, B)
@@ -205,6 +209,7 @@ def P_ssc(B, nu, p, gamma_min, gamma_max, gamma):
     f4 = lambda nui: (2*np.pi*np.power(re,2)*c*(nu/np.power(gamma,2)))*-2*f2(nui)*(np.power((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))),2))*(1/np.power(nui,2))
     f5 = lambda nui: (np.pi*np.power(re,2)*c*(nu/np.power(gamma,2)))*f2(nui)*(np.power((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))),2))*(np.power((4*gamma*h*nui)/(mec2),2))*(1-(nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))*(1/(1-((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))*((4*gamma*h*nui)/(mec2))))*(1/np.power(nui,2))
     '''
+
     f2 = lambda nui: syncEmissivityKernPL(gamma, nui, p, B)
     f0 = lambda nui: f2(nui)*2*((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))*np.log((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))*(1/np.power(nui,2))
     f1 = lambda nui: f2(nui)*(1/np.power(nui,2))
@@ -219,7 +224,6 @@ def P_ssc(B, nu, p, gamma_min, gamma_max, gamma):
     r = integrate.quad(f_tot, nui_min, nui_max)
 
     return r[0]
-
 
 def emissivity_SSC(B, nu, p, gamma_min, gamma_max, gamma):
     ne = np.power(gamma, -p)
@@ -236,9 +240,9 @@ def emissivity_SSC_ghisellini(p, R, n0, gamma, nu):
     return emissivity_syn
 '''
 
-def sympyintegral(B, R, d, dl, nu_min, nu_max, gamma_min, gamma_max, n0, p, nu_list_SSC):
+def sympyintegral(B, R, d, dl, gamma_min, gamma_max, n0, p, nu_list_SSC):
     flux_ssc = []
-    freq_plot_ssc = []
+    freq_plot = []
     # A = 8*np.pi*np.power(re,2)*c*h
     gamma_list = getLogGammaArray(np.log10(gamma_min), np.log10(gamma_max), 300)
     V_R = (4/3)*np.pi*np.power(R, 3)
@@ -257,19 +261,33 @@ def sympyintegral(B, R, d, dl, nu_min, nu_max, gamma_min, gamma_max, n0, p, nu_l
             print(I1)
             L_ssc = (4*np.pi*V_R*I1)
             flux_ssc.append((elm_nu*L_ssc*np.power(d,4))/(4*np.pi*np.power(dl,2)))
-            freq_plot_ssc.append(elm_nu)
-    print(np.log10(flux_ssc))
-    plt.plot(np.log10(freq_plot_ssc), np.log10(flux_ssc)/40, c='red')
+            # flux_ssc.append(elm_nu*I1*R)
+            freq_plot.append(elm_nu)
+    # freq_plot_ssc = np.log10(freq_plot)
+    # flux_plot_ssc = np.log10(flux_ssc)       
+    # print(np.log10(flux_ssc))
+    # plt.plot(np.log10(freq_plot), np.log10(flux_ssc), c='red')
     # plt.ylim(-10, 10)
     # plt.xlim(7., 25.)
+    # plt.show()
+    return np.log10(freq_plot), np.log10(flux_ssc)
+
+def plot_syn_ssc(freq_syn, freq_ssc, flux_syn, flux_ssc):
+    
+    plt.plot(freq_syn, flux_syn, c='red')
+    print(flux_syn)
+    plt.plot(freq_ssc, flux_ssc, c='blue')
+    print(flux_ssc)
+    # plt.ylim(35, 45)
+    plt.xlim(7., 25.)
     plt.show()
 
 def main():
 
     gamma_e = 100.
     B = 0.1
-    gamma_min = 10.
-    gamma_max = 100000.
+    gamma_min = 100.
+    gamma_max = 1000000.
     gammaL= 100.
     dt = 1e3
     z = 1
@@ -289,13 +307,17 @@ def main():
 
     # integrale = int_jssc(gamma, nu_min, nu_max)
 
-    # F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max)
-    sympyintegral(B, R, d, dl, nu_min, nu_max, gamma_min, gamma_max, n0, p, nu_list_SSC)
+    # freq_plot_syn, flux_plot_syn = F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max)
+    # print(freq_plot_syn, flux_plot_syn)
+    # freq_plot_syn, flux_plot_syn = F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, d, dl)
+    freq_plot_syn, flux_plot_syn = F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, d, dl)
+    freq_plot_ssc, flux_plot_ssc = sympyintegral(B, R, d, dl, gamma_min, gamma_max, n0, p, nu_list_SSC)
+    # sympyintegral(B, R, d, dl, gamma_min, gamma_max, n0, p, nu_list_SSC)
+    plot_syn_ssc(freq_plot_syn, freq_plot_ssc, flux_plot_syn, flux_plot_ssc)
 
     # F_syn = syn_sympyintegral(fre_syn, Lsyn, d, dl)
     # print(F_syn)
-
-    # P_ssc, j_ssc_1, j_ssc_2, j_ssc_3, j_ssc_tot = sympyintegral(A, R, nu_min, nu_max, gamma_min, gamma_max, n0, p)
+    # P_ssc, j_ssc_ b1, j_ssc_2, j_ssc_3, j_ssc_tot = sympyintegral(A, R, nu_min, nu_max, gamma_min, gamma_max, n0, p)
     # print('j_ssc_tot', j_ssc_tot)
 
     # L_ssc = luminosity_ssc(R, j_ssc_tot)
