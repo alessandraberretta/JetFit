@@ -136,7 +136,7 @@ def syncEmissivityKernPL(gamma, nu, p, B):
 
 def F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, d, dl):
 
-    gamma_list = getLogGammaArray(np.log10(gamma_min), np.log10(gamma_max), 100)
+    gamma_list = getLogGammaArray(np.log10(gamma_min), np.log10(gamma_max), 1000)
     nuL = nu_L(B)
     coeff_P_syn = (2.*np.pi*np.sqrt(3.)*e*e*nuL)/c
     k0 = (p+2)/(8*np.pi*me)
@@ -153,6 +153,7 @@ def F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, d, dl):
             # tau = alpha_PL*R
             asso = singleElecSynchroPower(elm_nu, elm_gamma, B)*pow(elm_gamma, -(p+1))
             js = syncEmissivityKernPL(elm_gamma, elm_nu, p, B)
+            # print('syn', js)
             func1.append(js)
             func2.append(asso)
         integral_simpson = integrate.simps(func1)
@@ -172,6 +173,8 @@ def F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, d, dl):
                 # flux_syn.append((elm_nu*I*np.power(d,4))/(4*np.pi*np.power(dl,2)))
                 assorb.append(elm_nu*I*R)
                 freq_plot.append(elm_nu)
+            # flux_syn.append(elm_nu*I*R)
+            # freq_plot.append(elm_nu)
     # freq_plot_syn = np.log10(freq_plot)
     # flux_plot_syn = np.log10(flux_syn)
     # plt.plot(np.log10(freq_plot), np.log10(flux_syn), c='blue')
@@ -192,69 +195,133 @@ def A1(nu, gamma):
     a1 = 2*np.pi*np.power(re,2)*c*(nu/np.power(gamma,2))
     return a1
 
-def P_ssc(B, nu, p, gamma_min, gamma_max, gamma):
+def P_ssc(R, B, n0, nu, p, gamma_min, gamma_max, gamma):
 
-    # asso, tau, js = F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max)
-    # syn_part = (1-(3/4)*tau)*asso
-
+    V_R = (4/3)*np.pi*np.power(R, 3)
+    nuL = nu_L(B)
     A = 8*np.pi*np.power(re,2)*c*h
+    k0 = (p+2)/(8*np.pi*me)
+    coeff_P_syn = (2.*np.pi*np.sqrt(3.)*e*e*nuL)/c
     nu_s_min = 1.2*1e6*np.power(gamma_min, 2)*B
     nu_s_max = 1.2*1e6*np.power(gamma_max, 2)*B
     nus = nu_s(gamma, B)
     nui_min = max(nu_s_min, (nus)/(4*np.power(gamma, 2)*(1-(h*nu)/(gamma*mec2))))
     nui_max = max(nu_s_max, (nus)/(1-(h*nu)/(gamma*mec2)))
+    nusmin = (nu*mec2)/(4*gamma*(gamma*mec2-h*nu))
+
+    q = lambda nui: (nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2)))
+    GAMMA = lambda nui: (4*gamma*h*nui)/(mec2)
+
+    f0 = lambda nui: (3/4)*R*syncEmissivityKernPL(gamma, nui, p, B)-(9/16)*np.power(R,2)*syncEmissivityKernPL(gamma, nui, p, B)*singleElecSynchroPower(nui, gamma, B)*pow(gamma, -(p+1))*np.power(1/nui,2)
+    f1 = lambda nui: f0(nui)*2*(q(nui)*np.log(q(nui)))
+    f2 = lambda nui: f0(nui)
+    f3 = lambda nui: f0(nui)*q(nui)
+    f4 = lambda nui: f0(nui)*(-2*np.power(q(nui),2))
+    f5 = lambda nui: f0(nui)*(np.power(GAMMA(nui),2)*np.power(q(nui),2))*(1-q(nui))/(2+2*GAMMA(nui)*q(nui))
+
+    f_tot = lambda nui: (nu/(np.power(nui,2)*np.power(gamma,2)))*(f0(nui))*(f1(nui) + f2(nui) + f3(nui) + f4(nui) + f5(nui))
     
-    '''
-    f2 = lambda nui: syncEmissivityKernPL(gamma, nui, p, B)
-    f0 = lambda nui: (2*np.pi*np.power(re,2)*c*(nu/np.power(gamma,2)))*2*((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))*np.log((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))*f2(nui)*(1/np.power(nui,2))
-    f1 = lambda nui: (2*np.pi*np.power(re,2)*c*(nu/np.power(gamma,2)))*f2(nui)*(1/np.power(nui,2))
-    f3 = lambda nui: (2*np.pi*np.power(re,2)*c*(nu/np.power(gamma,2)))*f2(nui)*((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))*(1/np.power(nui,2))
-    f4 = lambda nui: (2*np.pi*np.power(re,2)*c*(nu/np.power(gamma,2)))*-2*f2(nui)*(np.power((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))),2))*(1/np.power(nui,2))
-    f5 = lambda nui: (np.pi*np.power(re,2)*c*(nu/np.power(gamma,2)))*f2(nui)*(np.power((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))),2))*(np.power((4*gamma*h*nui)/(mec2),2))*(1-(nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))*(1/(1-((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))*((4*gamma*h*nui)/(mec2))))*(1/np.power(nui,2))
-    '''
-
-    f2 = lambda nui: syncEmissivityKernPL(gamma, nui, p, B)
-    f0 = lambda nui: f2(nui)*2*((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))*np.log((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))*(1/np.power(nui,2))
-    f1 = lambda nui: f2(nui)*(1/np.power(nui,2))
-    f3 = lambda nui: f2(nui)*((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))*(1/np.power(nui,2))
-    f4 = lambda nui: f2(nui)*-2*(np.power((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))),2))*(1/np.power(nui,2))
-    f5 = lambda nui: f2(nui)*(np.power((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))),2))*(np.power((4*gamma*h*nui)/(mec2),2))*\
-        (1-(nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))*(1/(1-((nu)/(4*np.power(gamma, 2)*\
-        nui*(1-(h*nu)/(gamma*mec2))))*((4*gamma*h*nui)/(mec2))))*(1/np.power(nui,2))
-
-    f_tot = lambda nui: (f0(nui) + f1(nui) + f3(nui) + f4(nui) + f5(nui))
-
-    r = integrate.quad(f_tot, nui_min, nui_max)
+    r = integrate.quad(f_tot, 1e3, 1e15)
 
     return r[0]
 
-def emissivity_SSC(B, nu, p, gamma_min, gamma_max, gamma):
+def P_ssc_allnumeric(B, gamma_min, gamma_max, nu_list_SSC, R, p, n0, dl, d):
+
+    nu_s_min = 1.2*1e6*np.power(gamma_min, 2)*B
+    nu_s_max = 1.2*1e6*np.power(gamma_max, 2)*B
+
+    gamma_list = np.linspace(gamma_min, gamma_max, 100)
+    # nui_list = getLogFreqArray(5., 12., 10)
+    nui_list = np.linspace(1e4, 1e15, 100)
+
+    flux_ssc = []
+    freq_plot = []
+    
+    for id, elm_nu in enumerate(tqdm(nu_list_SSC)):
+        print('nu -------------->', elm_nu)
+        list2 = []
+        gamma_surv = []
+        for elm_gamma in gamma_list:
+            print('gamma --->', elm_gamma)
+            nus = nu_s(elm_gamma, B)
+            nui_min = max(nu_s_min, (nus)/(4*np.power(elm_gamma, 2)*(1-(h*elm_nu)/(elm_gamma*mec2))))
+            nui_max = max(nu_s_max, (nus)/(1-(h*elm_nu)/(elm_gamma*mec2)))
+            nusmin = (elm_nu*mec2)/(4*elm_gamma*(elm_gamma*mec2-h*elm_nu))
+            # nui_list = np.linspace(nui_min, nui_max, endpoint=True)
+            list1 = []
+            nui_surv = []
+            for elm_nui in nui_list:
+                q = (elm_nu)/(4*np.power(elm_gamma, 2)*elm_nui*(1-(h*elm_nu)/(elm_gamma*mec2)))
+                GAMMA = (4*elm_gamma*h*elm_nui)/(mec2)
+                if 1/(4*elm_gamma*elm_gamma) <= q <= 1:
+                    # alpha_delta = (3*sigmaT*(np.power(B,2)/8*np.pi))/(64*np.pi*me)*np.power(e*B/(2*np.pi*me*c),(p-2)/2)*np.power(elm_nui, (-p-4)/2)
+                    # alpha_delta = syncEmissivityKernPL(elm_gamma, elm_nui, p, B)*((p+2)*n0/(8*np.pi*me*elm_nui*elm_nui))*asso
+                    # f0 = (3/4)*R*syncEmissivityKernPL(elm_gamma, elm_nui, p, B)-(9/16)*np.power(R,2)*syncEmissivityKernPL(elm_gamma, elm_nui, p, B)*singleElecSynchroPower(elm_nui, elm_gamma, B)*pow(elm_gamma, -(p+1))*(p+2)*n0/(8*np.pi*me*np.power(elm_nui,2))
+                    # f0 = (3/16*np.pi)*R*syncEmissivityKernPL(elm_gamma, elm_nui, p, B)
+                    tau = 2*singleElecSynchroPower(elm_nui, elm_gamma, B)*pow(elm_gamma, -(p+1))*R
+                    f0 = (9/4*c)*(syncEmissivityKernPL(elm_gamma, elm_nui, p, B)/singleElecSynchroPower(elm_nui, elm_gamma, B)*pow(elm_gamma, -(p+1)))*(1-(2/tau*tau)*(1-np.exp(-tau)*(tau+1)))
+                    # - (9/16)*np.power(R,2)*alpha_delta
+                    # 
+                    # f0 = L_syn
+                    # freq, flux_syn = F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, dl)
+                    f1 = 2*(q*np.log(q))
+                    f2 = 1
+                    f3 = q
+                    f4 = (-2*np.power(q,2))
+                    f5 = (np.power(GAMMA,2)*np.power(q,2))*(1-q)/(2+2*GAMMA*q)
+                    f_tot = 2*np.pi*np.power(re,2)*c*(elm_nu/(np.power(elm_nui,2)*np.power(elm_gamma,2)))*f0*(f1 + f2 + f3 + f4 + f5)
+                    # func2.append(asso)
+                    print('nui_surv', elm_nui)
+                    list1.append(f_tot)
+                    print('total_integrand', f_tot)
+                    nui_surv.append(elm_nui)
+                # else:
+                    # list1.append(-999)
+            if len(list1) != 0:
+                # list1_arr = np.array(list1)
+                # print(list1_arr)
+                # mask = list1 != -999
+                integral1 = integrate.simps(list1, x=nui_surv)
+                integral1_float = float(abs(integral1))
+                print('FIRST INTEGRATION < 1e-50 ---->', integral1_float)
+                if integral1_float > 1e-50:
+                    print('FIRST INTEGRATION ---->', integral1_float)
+                    all_electrons = np.power(elm_gamma, -p)*integral1_float
+                    gamma_surv.append(elm_gamma)
+                    list2.append(all_electrons)
+                # else: 
+                    # list2.append(-999)
+        if len(list2) != 0:
+            # list2_arr = np.array(list2)
+            # mask2 = list2 != -999
+            integral2 = integrate.simps(list2, x=gamma_surv)
+            integral2_float = float(integral2)
+            if integral2_float > 1e-50:
+                print('SECOND INTEGRATION ---->', integral1_float)
+                flux_ssc.append(elm_nu*integral2_float/(4*np.pi*dl*dl))
+                freq_plot.append(elm_nu)                 
+    return np.log10(freq_plot), np.log10(flux_ssc)
+
+def emissivity_SSC(R, B, n0, nu, p, gamma_min, gamma_max, gamma):
     ne = np.power(gamma, -p)
     #q_nui = lambda nui: (nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2)))
-    r1 = (2*np.pi*np.power(re,2)*c)*ne*P_ssc(B, nu, p, gamma_min, gamma_max, gamma)
+    r1 =ne*P_ssc(R, B, n0, nu, p, gamma_min, gamma_max, gamma)
     # (2*np.pi*np.power(re,2)*c*(nu/np.power(gamma,2)))
     # print('j_ssc:', r1)
     return r1
 
-'''
-def emissivity_SSC_ghisellini(p, R, n0, gamma, nu): 
-    alpha = (p-1)/2
-    tau = sigmaT*R*n0
-    emissivity_syn = (np.power((4/3), alpha))*(np.power((4/3), alpha-1)/2)*np.power(tau, 2)*(1/(4*np.pi))*(1/4)*(c/R)*np.power(4/3, -alpha)*np.power(gamma, -alpha)*np.power(nu, -alpha)*np.log(1e7/1e15)*np.log(1e13, 1e20)
-    return emissivity_syn
-'''
 
-def sympyintegral(B, R, d, dl, gamma_min, gamma_max, n0, p, nu_list_SSC):
+def sympyintegral(R, B, n0, p, gamma_min, gamma_max, nu_list_SSC, dl):
     
     flux_ssc = []
     freq_plot = []
-    gamma_list = np.linspace(gamma_min, gamma_max, 200)
+    gamma_list = np.linspace(gamma_min, gamma_max, 100)
     V_R = (4/3)*np.pi*np.power(R, 3)
 
     for elm_nu in tqdm(nu_list_SSC):
         j_ssc_list = [] 
         for elm_gamma in tqdm(gamma_list):
-            j_ssc = emissivity_SSC(B, elm_nu, p, gamma_min, gamma_max, elm_gamma)
+            j_ssc = emissivity_SSC(R, B, n0, elm_nu, p, gamma_min, gamma_max, elm_gamma)
             # print('j_ssc', j_ssc)
             j_ssc_list.append(j_ssc)
             # for j in j_ssc_list: 
@@ -271,10 +338,9 @@ def sympyintegral(B, R, d, dl, gamma_min, gamma_max, n0, p, nu_list_SSC):
         if integral_simpson1 > 1e-50:
             # print('integral_simps_ssc_2:', integral_simpson1)
             I1 = integral_simpson1*n0
-            print(I1)
             # L_ssc = (4*np.pi*V_R*I1)
             # flux_ssc.append((elm_nu*L_ssc*np.power(d,4))/(4*np.pi*np.power(dl,2)))
-            flux_ssc.append(elm_nu*I1*R)
+            flux_ssc.append(elm_nu*I1/np.power(dl,2))
             freq_plot.append(elm_nu)
     # freq_plot_ssc = np.log10(freq_plot)
     # flux_plot_ssc = np.log10(flux_ssc)       
@@ -283,13 +349,14 @@ def sympyintegral(B, R, d, dl, gamma_min, gamma_max, n0, p, nu_list_SSC):
     # plt.show()
     return np.log10(freq_plot), np.log10(flux_ssc)
 
+
 def plot_syn_ssc(freq_syn, freq_ssc, flux_syn, flux_ssc):
     
     plt.plot(freq_syn, flux_syn, c='red')
     print(flux_syn)
     plt.plot(freq_ssc, flux_ssc, c='blue')
     print(flux_ssc)
-    plt.ylim(-10, 5)
+    #plt.ylim(-10, 10)
     # plt.xlim(7., 25.)
     plt.show()
 
@@ -297,8 +364,8 @@ def main():
 
     gamma_e = 100.
     B = 0.1
-    gamma_min = 10.
-    gamma_max = 100000.
+    gamma_min = 100.
+    gamma_max = 10000.
     gammaL= 100.
     dt = 1e3
     z = 1
@@ -309,92 +376,25 @@ def main():
 
     d = doppler(gammaL, thetaObs)
     dl = luminosityDistance(z)
-    nu_list_SYN = getLogFreqArray(5., 22., 100)
+    nu_list_SYN = getLogFreqArray(6., 18., 100)
     # fre = getLogFreqArray(5., 18., 400)
-    nu_list_SSC = getLogFreqArray(15., 25., 100)
+    # nu_list_SSC = getLogFreqArray(10., 30., 100)
+    nu_list_SSC = np.logspace(15, 50, 100)
     # nu_list_SSC = np.logspace(12., 22., 20, endpoint=True)
     R = regionSize(dt, d, z)
-    nu_min = get_nu_i_min(gamma_e, B, gamma_min, gammaL, nu_list_SYN)
-    nu_max = get_nu_i_max(gamma_e, B, gamma_max, gammaL, nu_list_SYN)
 
-    # integrale = int_jssc(gamma, nu_min, nu_max)
+    # ghisellini_spectrum(gamma_min, gamma_max, nu_list_SSC, p, R, n0, B)
 
-    # freq_plot_syn, flux_plot_syn = F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max)
-    # print(freq_plot_syn, flux_plot_syn)
-    # freq_plot_syn, flux_plot_syn = F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, d, dl)
     freq_plot_syn, flux_plot_syn = F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, d, dl)
-    freq_plot_ssc, flux_plot_ssc = sympyintegral(B, R, d, dl, gamma_min, gamma_max, n0, p, nu_list_SSC)
+    # freq_plot_ssc, flux_plot_ssc = sympyintegral(R, B, n0, p, gamma_min, gamma_max, nu_list_SSC, dl)
+    freq_plot_ssc, flux_plot_ssc = P_ssc_allnumeric(B, gamma_min, gamma_max, nu_list_SSC, R, p, n0, dl, d)
     # F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, d, dl)
     # sympyintegral(B, R, d, dl, gamma_min, gamma_max, n0, p, nu_list_SSC)
+    print(len(flux_plot_ssc))
+    print(len(flux_plot_syn))
     plot_syn_ssc(freq_plot_syn, freq_plot_ssc, flux_plot_syn, flux_plot_ssc)
-
-    # F_syn = syn_sympyintegral(fre_syn, Lsyn, d, dl)
-    # print(F_syn)
-    # P_ssc, j_ssc_ b1, j_ssc_2, j_ssc_3, j_ssc_tot = sympyintegral(A, R, nu_min, nu_max, gamma_min, gamma_max, n0, p)
-    # print('j_ssc_tot', j_ssc_tot)
-
-    # L_ssc = luminosity_ssc(R, j_ssc_tot)
-    # F_ssc = flux_ssc(fre, L_ssc, d, dl)
-
-    # print(F_ssc)
-    # print(type(F_ssc))
-
-    # f_c = Jones_kernel(100)
-    # P_ssc = power_ssc(gamma_e, B, gamma_min, gamma_max, gamma)
-    # print(P_ssc)
-    # j_ssc = emissivity_ssc(n0, gamma_min, gamma_max, p, P_ssc)
-    # L_ssc = luminosity_ssc(R, j_ssc)
-    # Flux_ssc = flux_ssc(fre, L_ssc, d, dl)
 
 
 if __name__ == "__main__":
     main()
-
-'''
-def I_2(nu_list, B, p, R, n0, gamma_min, gamma_max, nu, gamma, nui):
-    tau, js = F_syn(nu_list, B, p, R, n0, gamma_min, gamma_max)
-    syn_part = (3./4.)*(R/c)*(1-(3/4)*tau)*js 
-    i2 = (nu/4*np.power(gamma,2)*nui)*(1/(h*nui))*((1)+(nu/4*np.power(gamma,2)*nui*(1-h*nu/gamma*mec2))-2*\
-    (np.exp(nu/4*np.power(gamma,2)*nui*(1-h*nu/gamma*mec2)**2)))*(syn_part)
-    return i2
-
-def I_3(nu_list, B, p, R, n0, gamma_min, gamma_max, nu, gamma, nui): 
-    tau, js = F_syn(nu_list, B, p, R, n0, gamma_min, gamma_max)
-    syn_part = (3./4.)*(R/c)*(1-(3/4)*tau)*js 
-    i3 = (nu/4*np.power(gamma,2)*nui)*(1/(h*nui))*((4*gamma*nui*h/mec2)**2)*(np.exp((nu/4*np.power(gamma,2)*nui\
-    *(1-h*nu/gamma*mec2))**2))*(1/(2+2*(4*gamma*nui*h/mec2)*(nu/(4*np.power(gamma,2)*nui*(1-h*nu/gamma*mec2)))))\
-    *(1-(nu/4*np.power(gamma,2)*nui*(1-h*nu/gamma*mec2)))*(syn_part)
-    return i3
-'''
-
-# ((f2(nui))/(np.power(nui,2)))*(np.power(((4*gamma*h*nui)/(mec2))*((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2)))),2)*(1-((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))))/(1-((4*gamma*h*nui)/(mec2))*((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2)))))
-# (1/(np.power(nui,2)))*(np.power(((4*gamma*h*nui)/(mec2))*((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2)))),2)*(1-((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2))))))/(1-((4*gamma*h*nui)/(mec2))*((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2)))))
-'''
-I1 = a1*(2*q*np.log(q)*syn_part)/(np.power(nui,2))
-I2 = a1*(syn_part)/(np.power(nui,2))
-I3 = a1*(syn_part*q)/(np.power(nui,2))
-I4 = a1*(-syn_part*2*np.power(q,2))/(np.power(nui,2))
-I5 = (a1/2)*((syn_part)/(np.power(nui,2)))*(np.power(Gamma*q,2)*(1-q))/(1-Gamma*q)
-'''
-# i1 = (nu/4*np.power(gamma,2)*nui)*(2*nu/4*np.power(gamma,2)*nui*(1-h*nu/gamma*mec2))*(np.log(nu/4*np.power(gamma,2)*nui*(1-h*nu/gamma*mec2)))*(1/(h*nui))*(syn_part)
-# i2 = (nu/4*np.power(gamma,2)*nui)*(1/(h*nui))*((1)+(nu/4*np.power(gamma,2)*nui*(1-h*nu/gamma*mec2))-2*(np.exp(nu/4*np.power(gamma,2)*nui*(1-h*nu/gamma*mec2)**2)))*(syn_part)
-# i3 = (nu/4*np.power(gamma,2)*nui)*(1/(h*nui))*((4*gamma*nui*h/mec2)**2)*(np.exp((nu/4*np.power(gamma,2)*nui*(1-h*nu/gamma*mec2))**2))*(1/(2+2*(4*gamma*nui*h/mec2)*(nu/(4*np.power(gamma,2)*nui*(1-h*nu/gamma*mec2)))))*(1-(nu/4*np.power(gamma,2)*nui*(1-h*nu/gamma*mec2)))*(syn_part)
-'''
-f_f2 = lambda nui: 2*np.pi*np.power(re,2)*c*(nu/np.power(gamma,2))*(f2(nui)*(2*(nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2)))*np.log((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2)))))/(np.power(nui,2)))+\
-    (f2(nui))/(np.power(nui,2))+f2(nui)*(1*((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2)))))/(np.power(nui,2))+\
-    f2(nui)*(-1*2*np.power(((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2)))),2))/(np.power(nui,2))
-f = lambda nui: 2*np.pi*np.power(re,2)*c*(nu/np.power(gamma,2))*(1*(2*(nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2)))*np.log((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2)))))/(np.power(nui,2)))+\
-    (1)/(np.power(nui,2))+1*(1*((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2)))))/(np.power(nui,2))+\
-    (-1*2*np.power(((nu)/(4*np.power(gamma, 2)*nui*(1-(h*nu)/(gamma*mec2)))),2))/(np.power(nui,2))
-'''
-# a1 = A1(nu, gamma)
-# Gamma = GAMMA_fc(gamma)
-# print(Gamma)
-# q = q_fc(nu, gamma)
-# print(q)
-# f = lambda nui: a1*(2*q*np.log(q)*syn_part)/(np.power(nui,2))+a1*(syn_part)/(np.power(nui,2))+a1*(syn_part*q)/(np.power(nui,2))+\
-    # a1*(-syn_part*2*np.power(q,2))/(np.power(nui,2))+(a1/2)*((syn_part)/(np.power(nui,2)))*(np.power(Gamma*q,2)*(1-q))/(1-Gamma*q)
-# r = integrate.quad(f, nu_min, nu_max)
-# f = lambda nui: a1*(2*q*np.log(q))/(np.power(nui,2))+a1*(1)/(np.power(nui,2))+a1*(1*q)/(np.power(nui,2))+\
-    # a1*(-1*2*np.power(q,2))/(np.power(nui,2))+(a1/2)*((1)/(np.power(nui,2)))*(np.power(Gamma*q,2)*(1-q))/(1-Gamma*q)
 
