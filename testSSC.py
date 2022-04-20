@@ -1,17 +1,18 @@
 from cmath import isnan
 import os
 import sys
+# from numba import jit
 import numpy as np
 from scipy import integrate
 from scipy import optimize
 import scipy.special as sc
 import matplotlib.pyplot as plt
-import mpmath
-import sympy as sym
-from sympy import besselk
-from sympy import oo
-from sympy import sqrt
-from sympy.functions import exp
+# import mpmath
+# import sympy as sym
+# from sympy import besselk
+# from sympy import oo
+# from sympy import sqrt
+# from sympy.functions import exp
 from tqdm import tqdm
 
 mec2 = 8.187e-7  # ergs
@@ -21,6 +22,7 @@ eV2Hz = 2.418e14
 eV2erg = 1.602e12
 kB = 1.3807e-16  # [erg/K]
 h = 6.6261e-27  # erg*sec
+# h = 4.136e-15  # eV*sec
 me = 9.1094e-28  # g
 mp = 1.6726e-24  # g
 G = 6.6726e-8  # dyne cm^2/g^2
@@ -124,7 +126,8 @@ def singleElecSynchroPower(nu, gamma, B):
     nuL = nu_L(B)
     n1 = 2.*np.pi*np.sqrt(3.)*e*e*nuL/c
     nus = nu_c(gamma, B)
-    x0 = nu/nus
+    # x0 = nu/nus
+    x0 = nu/(3/2*gamma*gamma*nuL)
     y0 = bessel(x0)
     P = y0
     return P
@@ -134,9 +137,54 @@ def syncEmissivityKernPL(gamma, nu, p, B):
     k1 = ne*singleElecSynchroPower(nu, gamma, B)
     return k1
 
+def syncEmissivity(freq, gammam, gammaM, p, n0, B, R):
+    nuL = nu_L(B)
+    f1 = []
+    y = []
+    assorb = []
+    n1 = 2.*np.pi*np.sqrt(3.)*e*e*nuL/c
+    k0 = (p+2)/(8*np.pi*me)
+    ar = getLogGammaArray(np.log10(gammam), np.log10(gammaM), 100)
+    V_R = (4/3)*np.pi*np.power(R, 3)
+    for f in freq:
+        y1 = []
+        yy = []
+        for x in ar:
+            asso = singleElecSynchroPower(f, x, B)*pow(x, -(p+1))
+            js = syncEmissivityKernPL(x, f, p, B)
+            y1.append(js)
+            yy.append(asso)
+            # print("------>",x,yy)
+        r = integrate.simps(y1)
+        al = integrate.simps(yy)
+        #print (f,r)
+        if r > 1e-50:
+            I = n1*r*n0  # (r[0]/alpha)*(1.-exp(-tau))
+            as1 = n1*al*k0*n0/pow(f, 2.)
+            tau = as1*R
+            if(tau > 0.1):
+                assorb.append(f*I*R)
+                I = I*R*(1.-np.exp(-tau))/tau
+                y.append(f*I)
+                # y1.append(alpha)
+                f1.append(f)
+            else:
+                assorb.append(f*I*R)
+                y.append(f*I*R)
+                # y1.append(alpha)
+                f1.append(f)
+    # plt.plot(np.log10(f1), np.log10(y))
+    # plt.plot(np.log10(f1), np.log10(assorb))
+    # plt.plot(np.log10(f1), np.log10(y1))
+    # plt.legend()
+    # plt.ylim(35, 60)
+    # plt.xlim(7., 25.)
+    # plt.show()
+    return np.log10(f1), np.log10(y)
+
 def F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, d, dl):
 
-    gamma_list = getLogGammaArray(np.log10(gamma_min), np.log10(gamma_max), 1000)
+    gamma_list = getLogGammaArray(np.log10(gamma_min), np.log10(gamma_max), 100)
     nuL = nu_L(B)
     coeff_P_syn = (2.*np.pi*np.sqrt(3.)*e*e*nuL)/c
     k0 = (p+2)/(8*np.pi*me)
@@ -144,10 +192,11 @@ def F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, d, dl):
     freq_plot = []
     assorb = []
     V_R = (4/3)*np.pi*np.power(R, 3)
-    for elm_nu in nu_list_SYN: 
+
+    for elm_nu in tqdm(nu_list_SYN): 
         func1 = []
         func2 = []
-        for elm_gamma in gamma_list: 
+        for elm_gamma in gamma_list:
             # x_1 = elm_nu/nu_c(elm_gamma, B)
             # alpha_PL = ((3*sigmaT)/(64*np.pi*me))*(np.power(nuL, (p-2)/2))*(np.power(elm_nu, -(p+4)/2))
             # tau = alpha_PL*R
@@ -166,11 +215,11 @@ def F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, d, dl):
             if tau > 0.1:
                 assorb.append(elm_nu*I*R)
                 I = I*R*(1.-np.exp(-tau))/tau
-                flux_syn.append(elm_nu*I)
+                flux_syn.append(elm_nu*I*np.power(d,4)/dl*dl)
                 freq_plot.append(elm_nu)
             else:
-                flux_syn.append(elm_nu*I*R)
-                # flux_syn.append((elm_nu*I*np.power(d,4))/(4*np.pi*np.power(dl,2)))
+                flux_syn.append(elm_nu*I*R*np.power(d,4)/dl*dl)
+                # flux_syn.append((elm_nu*I*R*np.power(d,4))/(4*np.pi*np.power(dl,2)))
                 assorb.append(elm_nu*I*R)
                 freq_plot.append(elm_nu)
             # flux_syn.append(elm_nu*I*R)
@@ -230,19 +279,19 @@ def P_ssc_allnumeric(B, gamma_min, gamma_max, nu_list_SSC, R, p, n0, dl, d):
     nu_s_min = 1.2*1e6*np.power(gamma_min, 2)*B
     nu_s_max = 1.2*1e6*np.power(gamma_max, 2)*B
 
-    gamma_list = np.linspace(gamma_min, gamma_max, 100)
-    # nui_list = getLogFreqArray(5., 12., 10)
-    nui_list = np.linspace(1e4, 1e15, 100)
+    gamma_list = np.linspace(gamma_min, gamma_max, 200)
+    # nui_list = getLogFreqArray(5., 15., 400)
+    nui_list = np.logspace(6, 16, 200)
 
     flux_ssc = []
     freq_plot = []
     
-    for id, elm_nu in enumerate(tqdm(nu_list_SSC)):
+    for id, elm_nu in enumerate(nu_list_SSC):
         print('nu -------------->', elm_nu)
         list2 = []
         gamma_surv = []
         for elm_gamma in gamma_list:
-            print('gamma --->', elm_gamma)
+            # print('gamma --->', elm_gamma)
             nus = nu_s(elm_gamma, B)
             nui_min = max(nu_s_min, (nus)/(4*np.power(elm_gamma, 2)*(1-(h*elm_nu)/(elm_gamma*mec2))))
             nui_max = max(nu_s_max, (nus)/(1-(h*elm_nu)/(elm_gamma*mec2)))
@@ -271,9 +320,9 @@ def P_ssc_allnumeric(B, gamma_min, gamma_max, nu_list_SSC, R, p, n0, dl, d):
                     f5 = (np.power(GAMMA,2)*np.power(q,2))*(1-q)/(2+2*GAMMA*q)
                     f_tot = 2*np.pi*np.power(re,2)*c*(elm_nu/(np.power(elm_nui,2)*np.power(elm_gamma,2)))*f0*(f1 + f2 + f3 + f4 + f5)
                     # func2.append(asso)
-                    print('nui_surv', elm_nui)
+                    # print('nui_surv', elm_nui)
                     list1.append(f_tot)
-                    print('total_integrand', f_tot)
+                    # print('total_integrand', f_tot)
                     nui_surv.append(elm_nui)
                 # else:
                     # list1.append(-999)
@@ -283,10 +332,10 @@ def P_ssc_allnumeric(B, gamma_min, gamma_max, nu_list_SSC, R, p, n0, dl, d):
                 # mask = list1 != -999
                 integral1 = integrate.simps(list1, x=nui_surv)
                 integral1_float = float(abs(integral1))
-                print('FIRST INTEGRATION < 1e-50 ---->', integral1_float)
+                # print('FIRST INTEGRATION < 1e-50 ---->', integral1_float)
                 if integral1_float > 1e-50:
-                    print('FIRST INTEGRATION ---->', integral1_float)
-                    all_electrons = np.power(elm_gamma, -p)*integral1_float
+                    # print('FIRST INTEGRATION ---->', integral1_float)
+                    all_electrons = n0*np.power(elm_gamma, -p)*integral1_float
                     gamma_surv.append(elm_gamma)
                     list2.append(all_electrons)
                 # else: 
@@ -298,7 +347,7 @@ def P_ssc_allnumeric(B, gamma_min, gamma_max, nu_list_SSC, R, p, n0, dl, d):
             integral2_float = float(integral2)
             if integral2_float > 1e-50:
                 print('SECOND INTEGRATION ---->', integral1_float)
-                flux_ssc.append(elm_nu*integral2_float/(4*np.pi*dl*dl))
+                flux_ssc.append(elm_nu*integral2_float*np.power(d,4)/(4*np.pi*dl*dl))
                 freq_plot.append(elm_nu)                 
     return np.log10(freq_plot), np.log10(flux_ssc)
 
@@ -309,7 +358,6 @@ def emissivity_SSC(R, B, n0, nu, p, gamma_min, gamma_max, gamma):
     # (2*np.pi*np.power(re,2)*c*(nu/np.power(gamma,2)))
     # print('j_ssc:', r1)
     return r1
-
 
 def sympyintegral(R, B, n0, p, gamma_min, gamma_max, nu_list_SSC, dl):
     
@@ -349,50 +397,52 @@ def sympyintegral(R, B, n0, p, gamma_min, gamma_max, nu_list_SSC, dl):
     # plt.show()
     return np.log10(freq_plot), np.log10(flux_ssc)
 
+def plot_syn_ssc(freq_syn, flux_syn, freq_ssc, flux_ssc):
 
-def plot_syn_ssc(freq_syn, freq_ssc, flux_syn, flux_ssc):
-    
     plt.plot(freq_syn, flux_syn, c='red')
-    print(flux_syn)
+    # print(flux_syn)
     plt.plot(freq_ssc, flux_ssc, c='blue')
     print(flux_ssc)
-    #plt.ylim(-10, 10)
+    # plt.ylim(-20, -6)
     # plt.xlim(7., 25.)
     plt.show()
 
 def main():
 
-    gamma_e = 100.
+    # gamma_e = 100.
     B = 0.1
     gamma_min = 100.
-    gamma_max = 10000.
-    gammaL= 100.
+    gamma_max_syn = 1000000000.
+    gamma_max_ssc = 1000000000.
+    gammaL = 1500.
     dt = 1e3
-    z = 1
+    z = 1.0
     thetaObs = 1./gammaL
-    n0 = 10e4
-    p = 2.5
+    n0 = 1e-10
+    p = 1.1
     # nu = 1e17
 
-    d = doppler(gammaL, thetaObs)
+    # d = doppler(gammaL, thetaObs)
+    d = 25 
     dl = luminosityDistance(z)
-    nu_list_SYN = getLogFreqArray(6., 18., 100)
+    nu_list_SYN = np.logspace(6, 27, num=200, endpoint=True)
     # fre = getLogFreqArray(5., 18., 400)
     # nu_list_SSC = getLogFreqArray(10., 30., 100)
-    nu_list_SSC = np.logspace(15, 50, 100)
+    nu_list_SSC = np.logspace(20, 29, num=50, endpoint=True)
     # nu_list_SSC = np.logspace(12., 22., 20, endpoint=True)
-    R = regionSize(dt, d, z)
+    # R = regionSize(dt, d, z)
+    R = 2.3e16
 
     # ghisellini_spectrum(gamma_min, gamma_max, nu_list_SSC, p, R, n0, B)
 
-    freq_plot_syn, flux_plot_syn = F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, d, dl)
-    # freq_plot_ssc, flux_plot_ssc = sympyintegral(R, B, n0, p, gamma_min, gamma_max, nu_list_SSC, dl)
-    freq_plot_ssc, flux_plot_ssc = P_ssc_allnumeric(B, gamma_min, gamma_max, nu_list_SSC, R, p, n0, dl, d)
+    # freq_plot_syn, flux_plot_syn = F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max_syn, d, dl)
+    freq_plot_syn, flux_plot_syn = syncEmissivity(nu_list_SYN, gamma_min, gamma_max_syn, p, n0, B, R)
+    # freq_plot_ssc, flux_plot_ssc = sympyintegral(R, B, n0, p, gamma_min, gamma_max_ssc, nu_list_SSC, dl)
+    freq_plot_ssc, flux_plot_ssc = P_ssc_allnumeric(B, gamma_min, gamma_max_ssc, nu_list_SSC, R, p, n0, dl, d)
     # F_syn(nu_list_SYN, B, p, R, n0, gamma_min, gamma_max, d, dl)
     # sympyintegral(B, R, d, dl, gamma_min, gamma_max, n0, p, nu_list_SSC)
-    print(len(flux_plot_ssc))
-    print(len(flux_plot_syn))
-    plot_syn_ssc(freq_plot_syn, freq_plot_ssc, flux_plot_syn, flux_plot_ssc)
+    plot_syn_ssc(freq_plot_syn, flux_plot_syn, freq_plot_ssc, flux_plot_ssc)
+    # freq_plot_ssc, flux_plot_ssc
 
 
 if __name__ == "__main__":
